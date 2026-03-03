@@ -12,7 +12,7 @@ from ..models import (
 from ..services.audit import log as audit
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory="templates")
 
 
 @router.get("/", response_class=HTMLResponse)

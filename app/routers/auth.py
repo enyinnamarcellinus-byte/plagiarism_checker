@@ -9,7 +9,7 @@ from ..models import AuditAction, Role, User
 from ..services.audit import log as audit
 
 router = APIRouter(tags=["auth"])
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory="templates")
 
 
 @router.get("/login", response_class=HTMLResponse)

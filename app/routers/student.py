@@ -9,7 +9,7 @@ from ..models import AuditAction, Exam, Role, SimilarityPair, Submission, User
 from ..services.audit import log as audit
 
 router = APIRouter(prefix="/student", tags=["student"])
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory="templates")
 
 
 @router.get("/dashboard", response_class=HTMLResponse)
