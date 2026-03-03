@@ -45,7 +45,7 @@ def list_exams(
         return db.query(Exam).filter(Exam.course_id.in_(course_ids)).all()
     from datetime import UTC, datetime
 
-    now = datetime.now(UTC)
+    now = datetime.now(UTC).replace(tzinfo=None)
     return db.query(Exam).filter(Exam.opens_at <= now, Exam.closes_at >= now).all()
 
 
@@ -89,7 +89,7 @@ def delete_exam(
 ):
     exam = db.get(Exam, exam_id)
     if not exam:
-        raise HTTPException(status_code=404, detail="Exam not found")
+        raise HTTPException(tatus_code=404, detail="Exam not found")
     if user.role == Role.lecturer and exam.course.lecturer_id != user.id:
         raise HTTPException(status_code=403, detail="Not your exam")
     db.delete(exam)

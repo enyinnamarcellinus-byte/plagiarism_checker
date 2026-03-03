@@ -25,8 +25,14 @@ def student_dashboard(
 
     from datetime import UTC, datetime
 
-    now = datetime.now(UTC)
+    now = datetime.now(UTC).replace(tzinfo=None)
     open_exams = db.query(Exam).filter(Exam.opens_at <= now, Exam.closes_at >= now).all()
+    submissions = (
+        db.query(Submission)
+        .filter_by(student_id=user.id)
+        .order_by(Submission.uploaded_at.desc())
+        .all()
+    )
     submissions = (
         db.query(Submission)
         .filter_by(student_id=user.id)
