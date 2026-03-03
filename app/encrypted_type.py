@@ -1,5 +1,6 @@
 from sqlalchemy import Text
 from sqlalchemy.types import TypeDecorator
+
 from .services.crypto import decrypt_bytes, encrypt_bytes
 
 

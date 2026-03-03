@@ -1,19 +1,23 @@
 from datetime import datetime
+
 from pydantic import BaseModel, EmailStr, field_validator
+
 from .models import AuditAction, JobStatus, PlagiarismType, ReviewStatus, Role
 
-
 # --- Auth ---
+
 
 class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
 
 class UserCreate(BaseModel):
     email: EmailStr
     name: str
     password: str
     role: Role = Role.student
+
 
 class UserOut(BaseModel):
     id: int
@@ -27,10 +31,12 @@ class UserOut(BaseModel):
 
 # --- Course ---
 
+
 class CourseCreate(BaseModel):
     title: str
     code: str
     description: str | None = None
+
 
 class CourseOut(BaseModel):
     id: int
@@ -43,6 +49,7 @@ class CourseOut(BaseModel):
 
 
 # --- Exam ---
+
 
 class ExamCreate(BaseModel):
     course_id: int
@@ -61,6 +68,7 @@ class ExamCreate(BaseModel):
             raise ValueError("closes_at must be after opens_at")
         return v
 
+
 class ExamOut(BaseModel):
     id: int
     course_id: int
@@ -76,6 +84,7 @@ class ExamOut(BaseModel):
 
 # --- Submission ---
 
+
 class SubmissionOut(BaseModel):
     id: int
     exam_id: int
@@ -86,6 +95,7 @@ class SubmissionOut(BaseModel):
 
 
 # --- Job ---
+
 
 class JobOut(BaseModel):
     id: int
@@ -99,6 +109,7 @@ class JobOut(BaseModel):
 
 # --- Similarity / Reports ---
 
+
 class FragmentOut(BaseModel):
     id: int
     text: str
@@ -109,6 +120,7 @@ class FragmentOut(BaseModel):
     length: int
     model_config = {"from_attributes": True}
 
+
 class TypeResultOut(BaseModel):
     predicted_type: PlagiarismType
     score_verbatim: float
@@ -116,6 +128,7 @@ class TypeResultOut(BaseModel):
     score_patchwork: float
     score_structural: float
     model_config = {"from_attributes": True}
+
 
 class PairOut(BaseModel):
     id: int
@@ -132,9 +145,11 @@ class PairOut(BaseModel):
 
 # --- Review ---
 
+
 class ReviewCreate(BaseModel):
     status: ReviewStatus
     notes: str | None = None
+
 
 class ReviewOut(BaseModel):
     id: int
@@ -147,6 +162,7 @@ class ReviewOut(BaseModel):
 
 
 # --- Audit ---
+
 
 class AuditLogOut(BaseModel):
     id: int

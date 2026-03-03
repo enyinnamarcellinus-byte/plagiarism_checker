@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -19,10 +21,10 @@ def login_page(request: Request):
 
 @router.post("/login")
 async def login_submit(
+    db: Annotated[Session, Depends(get_db)],
     request: Request,
     email: str = Form(...),
     password: str = Form(...),
-    db: Session = Depends(get_db),
 ):
     ip = request.client.host if request.client else None
     user = db.query(User).filter_by(email=email).first()
@@ -36,10 +38,12 @@ async def login_submit(
         )
 
     audit(db, AuditAction.login, user_id=user.id, detail={"success": True}, ip_address=ip)
-    token    = create_token(user.id, user.role)
+    token = create_token(user.id, user.role)
     redirect = "/student/dashboard" if user.role == Role.student else "/dashboard/"
     response = RedirectResponse(url=redirect, status_code=302)
-    response.set_cookie(key="session", value=token, httponly=True, samesite="lax", max_age=_max_age())
+    response.set_cookie(
+        key="session", value=token, httponly=True, samesite="lax", max_age=_max_age()
+    )
     return response
 
 
@@ -51,11 +55,11 @@ def register_page(request: Request):
 @router.post("/register")
 async def register_submit(
     request: Request,
+    db: Annotated[Session, Depends(get_db)],
     name: str = Form(...),
     email: str = Form(...),
     password: str = Form(...),
     role: str = Form(...),
-    db: Session = Depends(get_db),
 ):
     if db.query(User).filter_by(email=email).first():
         return templates.TemplateResponse(
@@ -72,7 +76,7 @@ async def register_submit(
 
 
 @router.get("/logout")
-def logout(request: Request, db: Session = Depends(get_db)):
+def logout(request: Request, db: Annotated[Session, Depends(get_db)]):
     response = RedirectResponse(url="/login", status_code=302)
     response.delete_cookie("session")
     return response
@@ -80,4 +84,5 @@ def logout(request: Request, db: Session = Depends(get_db)):
 
 def _max_age() -> int:
     from ..config import settings
+
     return settings.access_token_expire_minutes * 60

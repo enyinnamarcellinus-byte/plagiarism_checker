@@ -1,9 +1,11 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from ..auth import get_current_user, lecturer_or_admin
+from ..auth import lecturer_or_admin
 from ..database import get_db
-from ..models import AuditAction, Exam, ReviewDecision, ReviewStatus, Role, SimilarityPair, User
+from ..models import AuditAction, Exam, ReviewDecision, Role, SimilarityPair, User
 from ..schemas import PairOut, ReviewCreate, ReviewOut
 from ..services.audit import log as audit
 
@@ -23,15 +25,22 @@ def _assert_exam_access(exam_id: int, user: User, db: Session) -> Exam:
 def get_pairs(
     exam_id: int,
     request: Request,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(lecturer_or_admin)],
     min_score: float = 0.0,
-    db: Session = Depends(get_db),
-    user: User = Depends(lecturer_or_admin),
 ):
     _assert_exam_access(exam_id, user, db)
-    audit(db, AuditAction.report_viewed, user_id=user.id, target_id=exam_id, target_type="exam",
-          ip_address=request.client.host if request.client else None)
+    audit(
+        db,
+        AuditAction.report_viewed,
+        user_id=user.id,
+        target_id=exam_id,
+        target_type="exam",
+        ip_address=request.client.host if request.client else None,
+    )
 
     from ..models import Submission
+
     sub_ids = [s.id for s in db.query(Submission.id).filter_by(exam_id=exam_id)]
     return (
         db.query(SimilarityPair)
@@ -45,7 +54,11 @@ def get_pairs(
 
 
 @router.get("/pairs/{pair_id}", response_model=PairOut)
-def get_pair(pair_id: int, db: Session = Depends(get_db), user: User = Depends(lecturer_or_admin)):
+def get_pair(
+    pair_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(lecturer_or_admin)],
+):
     pair = db.get(SimilarityPair, pair_id)
     if not pair:
         raise HTTPException(status_code=404, detail="Pair not found")
@@ -57,8 +70,8 @@ def submit_review(
     pair_id: int,
     request: Request,
     body: ReviewCreate,
-    db: Session = Depends(get_db),
-    user: User = Depends(lecturer_or_admin),
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(lecturer_or_admin)],
 ):
     pair = db.get(SimilarityPair, pair_id)
     if not pair:
@@ -74,8 +87,15 @@ def submit_review(
         db.add(review)
     db.commit()
 
-    audit(db, AuditAction.review_decision, user_id=user.id, target_id=pair_id, target_type="pair",
-          detail={"status": body.status}, ip_address=request.client.host if request.client else None)
+    audit(
+        db,
+        AuditAction.review_decision,
+        user_id=user.id,
+        target_id=pair_id,
+        target_type="pair",
+        detail={"status": body.status},
+        ip_address=request.client.host if request.client else None,
+    )
 
     db.refresh(review)
     return review

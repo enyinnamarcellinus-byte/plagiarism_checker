@@ -1,6 +1,7 @@
 import os
 import uuid
-from datetime import datetime, UTC
+from datetime import UTC, datetime
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
@@ -33,7 +34,9 @@ def _save_file(file: UploadFile, exam: Exam) -> str:
             if size > max_bytes:
                 f.close()
                 os.remove(dest)
-                raise HTTPException(status_code=413, detail=f"File exceeds {exam.max_file_mb}MB limit")
+                raise HTTPException(
+                    status_code=413, detail=f"File exceeds {exam.max_file_mb}MB limit"
+                )
             f.write(chunk)
     return dest
 
@@ -58,8 +61,8 @@ def _upsert_job(exam_id: int, db: Session) -> PlagiarismJob:
 async def upload_submission(
     exam_id: int,
     file: UploadFile,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
 ):
     if user.role != Role.student:
         raise HTTPException(status_code=403, detail="Only students can submit")
@@ -90,6 +93,7 @@ async def upload_submission(
 
     job = _upsert_job(exam_id, db)
     from ..tasks.analysis import run_plagiarism_analysis
+
     task = run_plagiarism_analysis.delay(exam_id)
     job.celery_id = task.id
     db.commit()
@@ -98,7 +102,11 @@ async def upload_submission(
 
 
 @router.get("/{exam_id}", response_model=list[SubmissionOut])
-def list_submissions(exam_id: int, db: Session = Depends(get_db), user: User = Depends(lecturer_or_admin)):
+def list_submissions(
+    exam_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(lecturer_or_admin)],
+):
     exam = db.get(Exam, exam_id)
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
@@ -108,7 +116,11 @@ def list_submissions(exam_id: int, db: Session = Depends(get_db), user: User = D
 
 
 @router.get("/{exam_id}/job", response_model=JobOut)
-def get_job_status(exam_id: int, db: Session = Depends(get_db), user: User = Depends(lecturer_or_admin)):
+def get_job_status(
+    exam_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(lecturer_or_admin)],
+):
     job = db.query(PlagiarismJob).filter_by(exam_id=exam_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="No analysis job found for this exam")

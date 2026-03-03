@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -20,7 +22,11 @@ def _assert_course_access(course_id: int, user: User, db: Session) -> Course:
 
 
 @router.post("/", response_model=ExamOut, status_code=status.HTTP_201_CREATED)
-def create_exam(body: ExamCreate, db: Session = Depends(get_db), user: User = Depends(lecturer_or_admin)):
+def create_exam(
+    body: ExamCreate,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(lecturer_or_admin)],
+):
     _assert_course_access(body.course_id, user, db)
     exam = Exam(**body.model_dump())
     db.add(exam)
@@ -31,17 +37,24 @@ def create_exam(body: ExamCreate, db: Session = Depends(get_db), user: User = De
 
 
 @router.get("/", response_model=list[ExamOut])
-def list_exams(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def list_exams(
+    db: Annotated[Session, Depends(get_db)], user: Annotated[User, Depends(get_current_user)]
+):
     if user.role in (Role.lecturer, Role.admin):
         course_ids = [c.id for c in db.query(Course).filter_by(lecturer_id=user.id).all()]
         return db.query(Exam).filter(Exam.course_id.in_(course_ids)).all()
-    from datetime import datetime, timezone, UTC
+    from datetime import UTC, datetime
+
     now = datetime.now(UTC)
     return db.query(Exam).filter(Exam.opens_at <= now, Exam.closes_at >= now).all()
 
 
 @router.get("/{exam_id}", response_model=ExamOut)
-def get_exam(exam_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def get_exam(
+    exam_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+):
     exam = db.get(Exam, exam_id)
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
@@ -51,7 +64,12 @@ def get_exam(exam_id: int, db: Session = Depends(get_db), user: User = Depends(g
 
 
 @router.put("/{exam_id}", response_model=ExamOut)
-def update_exam(exam_id: int, body: ExamCreate, db: Session = Depends(get_db), user: User = Depends(lecturer_or_admin)):
+def update_exam(
+    exam_id: int,
+    body: ExamCreate,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(lecturer_or_admin)],
+):
     exam = db.get(Exam, exam_id)
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
@@ -64,7 +82,11 @@ def update_exam(exam_id: int, body: ExamCreate, db: Session = Depends(get_db), u
 
 
 @router.delete("/{exam_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_exam(exam_id: int, db: Session = Depends(get_db), user: User = Depends(lecturer_or_admin)):
+def delete_exam(
+    exam_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(lecturer_or_admin)],
+):
     exam = db.get(Exam, exam_id)
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")

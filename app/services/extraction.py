@@ -23,10 +23,12 @@ def _read(ext: str, fileobj: io.BytesIO) -> str:
 
     if ext == "docx":
         from docx import Document
+
         return "\n".join(p.text for p in Document(fileobj).paragraphs)
 
     if ext == "pdf":
         from pypdf import PdfReader
+
         return "\n".join(page.extract_text() or "" for page in PdfReader(fileobj).pages)
 
     raise ValueError(f"Unsupported file type: {ext}")

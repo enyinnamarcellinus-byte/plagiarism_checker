@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -13,28 +15,42 @@ templates = Jinja2Templates(directory="templates")
 
 
 @router.get("/dashboard", response_class=HTMLResponse)
-def student_dashboard(request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def student_dashboard(
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+):
     if user.role != Role.student:
         raise HTTPException(status_code=403, detail="Students only")
 
-    from datetime import datetime, timezone, UTC
+    from datetime import UTC, datetime
+
     now = datetime.now(UTC)
     open_exams = db.query(Exam).filter(Exam.opens_at <= now, Exam.closes_at >= now).all()
-    submissions = db.query(Submission).filter_by(student_id=user.id).order_by(Submission.uploaded_at.desc()).all()
+    submissions = (
+        db.query(Submission)
+        .filter_by(student_id=user.id)
+        .order_by(Submission.uploaded_at.desc())
+        .all()
+    )
 
-    return templates.TemplateResponse("student/dashboard.html", {
-        "request": request, "user": user,
-        "open_exams": open_exams,
-        "submissions": submissions,
-    })
+    return templates.TemplateResponse(
+        "student/dashboard.html",
+        {
+            "request": request,
+            "user": user,
+            "open_exams": open_exams,
+            "submissions": submissions,
+        },
+    )
 
 
 @router.get("/submissions/{submission_id}", response_class=HTMLResponse)
 def submission_detail(
     submission_id: int,
     request: Request,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
 ):
     if user.role != Role.student:
         raise HTTPException(status_code=403, detail="Students only")
@@ -47,16 +63,28 @@ def submission_detail(
     pairs = (
         db.query(SimilarityPair)
         .filter(
-            (SimilarityPair.submission_a_id == submission_id) |
-            (SimilarityPair.submission_b_id == submission_id)
+            (SimilarityPair.submission_a_id == submission_id)
+            | (SimilarityPair.submission_b_id == submission_id)
         )
         .order_by(SimilarityPair.similarity_score.desc())
         .all()
     )
 
-    audit(db, AuditAction.report_viewed, user_id=user.id, target_id=submission_id, target_type="submission")
+    audit(
+        db,
+        AuditAction.report_viewed,
+        user_id=user.id,
+        target_id=submission_id,
+        target_type="submission",
+    )
 
-    return templates.TemplateResponse("student/submission.html", {
-        "request": request, "user": user, "sub": sub,
-        "exam": sub.exam, "pairs": pairs,
-    })
+    return templates.TemplateResponse(
+        "student/submission.html",
+        {
+            "request": request,
+            "user": user,
+            "sub": sub,
+            "exam": sub.exam,
+            "pairs": pairs,
+        },
+    )
