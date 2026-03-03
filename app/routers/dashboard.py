@@ -5,7 +5,11 @@ from sqlalchemy.orm import Session
 
 from ..auth import lecturer_or_admin
 from ..database import get_db
-from ..models import Exam, JobStatus, PlagiarismJob, ReviewDecision, ReviewStatus, SimilarityPair, Submission, User
+from ..models import (
+    AuditAction, Course, Exam, PlagiarismJob, ReviewDecision,
+    ReviewStatus, SimilarityPair, Submission, User,
+)
+from ..services.audit import log as audit
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 templates = Jinja2Templates(directory="app/templates")
@@ -13,8 +17,10 @@ templates = Jinja2Templates(directory="app/templates")
 
 @router.get("/", response_class=HTMLResponse)
 def dashboard_home(request: Request, db: Session = Depends(get_db), user: User = Depends(lecturer_or_admin)):
-    exams = db.query(Exam).filter_by(lecturer_id=user.id).all()
-    return templates.TemplateResponse("dashboard/home.html", {"request": request, "exams": exams, "user": user})
+    courses = db.query(Course).filter_by(lecturer_id=user.id).all()
+    return templates.TemplateResponse("dashboard/home.html", {
+        "request": request, "user": user, "courses": courses,
+    })
 
 
 @router.get("/exams/{exam_id}", response_class=HTMLResponse)
@@ -26,12 +32,15 @@ def exam_detail(
     user: User = Depends(lecturer_or_admin),
 ):
     exam = db.get(Exam, exam_id)
-    if not exam or (exam.lecturer_id != user.id):
+    if not exam or exam.course.lecturer_id != user.id:
         raise HTTPException(status_code=404)
 
-    job = db.query(PlagiarismJob).filter_by(exam_id=exam_id).first()
+    audit(db, AuditAction.report_viewed, user_id=user.id, target_id=exam_id, target_type="exam",
+          ip_address=request.client.host if request.client else None)
+
+    job     = db.query(PlagiarismJob).filter_by(exam_id=exam_id).first()
     sub_ids = [s.id for s in db.query(Submission.id).filter_by(exam_id=exam_id)]
-    pairs = (
+    pairs   = (
         db.query(SimilarityPair)
         .filter(
             SimilarityPair.submission_a_id.in_(sub_ids),
@@ -56,9 +65,8 @@ def pair_detail(pair_id: int, request: Request, db: Session = Depends(get_db), u
     sub_a = db.get(Submission, pair.submission_a_id)
     sub_b = db.get(Submission, pair.submission_b_id)
 
-    # Build highlighted text for both sides
-    highlights_a = _highlight(sub_a.extracted_text, [(f.start_a, f.end_a) for f in pair.fragments])
-    highlights_b = _highlight(sub_b.extracted_text, [(f.start_b, f.end_b) for f in pair.fragments])
+    highlights_a = _highlight(sub_a.extracted_text or "", [(f.start_a, f.end_a) for f in pair.fragments])
+    highlights_b = _highlight(sub_b.extracted_text or "", [(f.start_b, f.end_b) for f in pair.fragments])
 
     return templates.TemplateResponse("dashboard/pair.html", {
         "request": request, "pair": pair,
@@ -70,50 +78,43 @@ def pair_detail(pair_id: int, request: Request, db: Session = Depends(get_db), u
 
 @router.post("/pairs/{pair_id}/review", response_class=HTMLResponse)
 async def update_review(
-    pair_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    user: User = Depends(lecturer_or_admin),
+    pair_id: int, request: Request,
+    db: Session = Depends(get_db), user: User = Depends(lecturer_or_admin),
 ):
-    form = await request.form()
+    form   = await request.form()
     status = form.get("status")
-    notes = form.get("notes", "")
+    notes  = form.get("notes", "")
 
-    pair = db.get(SimilarityPair, pair_id)
+    pair   = db.get(SimilarityPair, pair_id)
     review = db.query(ReviewDecision).filter_by(pair_id=pair_id).first()
     if review:
         review.status = status
-        review.notes = notes
+        review.notes  = notes
         review.reviewer_id = user.id
     else:
         review = ReviewDecision(pair_id=pair_id, reviewer_id=user.id, status=status, notes=notes)
         db.add(review)
     db.commit()
+    audit(db, AuditAction.review_decision, user_id=user.id, target_id=pair_id, target_type="pair",
+          detail={"status": status})
     db.refresh(review)
 
-    # Return just the review status badge fragment — HTMX swaps this in
     return templates.TemplateResponse("dashboard/fragments/review_badge.html", {
         "request": request, "review": review, "pair_id": pair_id,
     })
 
 
 def _highlight(text: str, spans: list[tuple[int, int]]) -> list[dict]:
-    """
-    Split text into segments tagged as matched or normal.
-    Returns: [{"text": "...", "matched": bool}, ...]
-    """
     tokens = text.split()
-    matched_positions = set()
-    for start, end in spans:
-        matched_positions.update(range(start, end))
-
+    matched = set()
+    for s, e in spans:
+        matched.update(range(s, e))
     segments, i = [], 0
     while i < len(tokens):
-        is_match = i in matched_positions
+        is_match = i in matched
         j = i
-        while j < len(tokens) and (j in matched_positions) == is_match:
+        while j < len(tokens) and (j in matched) == is_match:
             j += 1
         segments.append({"text": " ".join(tokens[i:j]), "matched": is_match})
         i = j
-
     return segments

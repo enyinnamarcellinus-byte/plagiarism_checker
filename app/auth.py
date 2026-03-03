@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Cookie, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -11,8 +11,8 @@ from .config import settings
 from .database import get_db
 from .models import Role, User
 
-pwd_ctx = CryptContext(schemes=["argon2"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
+pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
 
 
 def hash_password(pw: str) -> str:
@@ -25,7 +25,7 @@ def create_token(user_id: int, role: str) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
     return jwt.encode({"sub": str(user_id), "role": role, "exp": expire}, settings.secret_key, settings.algorithm)
 
-def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: Session = Depends(get_db)) -> User:
+def _decode_token(token: str, db: Session) -> User:
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
         user_id = int(payload["sub"])
@@ -36,6 +36,31 @@ def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: Session 
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
     return user
 
+def get_current_user(
+    request: Request,
+    bearer: Annotated[str | None, Depends(oauth2_scheme)] = None,
+    session: Annotated[str | None, Cookie(alias="session")] = None,
+    db: Session = Depends(get_db),
+) -> User:
+    token = bearer or session
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    return _decode_token(token, db)
+
+def get_current_user_optional(
+    request: Request,
+    bearer: Annotated[str | None, Depends(oauth2_scheme)] = None,
+    session: Annotated[str | None, Cookie(alias="session")] = None,
+    db: Session = Depends(get_db),
+) -> User | None:
+    token = bearer or session
+    if not token:
+        return None
+    try:
+        return _decode_token(token, db)
+    except HTTPException:
+        return None
+
 def require_role(*roles: Role):
     def guard(user: User = Depends(get_current_user)) -> User:
         if user.role not in roles:
@@ -43,7 +68,6 @@ def require_role(*roles: Role):
         return user
     return guard
 
-# Convenience deps
 lecturer_or_admin = require_role(Role.lecturer, Role.admin)
 student_only      = require_role(Role.student)
 admin_only        = require_role(Role.admin)

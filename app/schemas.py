@@ -1,6 +1,6 @@
 from datetime import datetime
 from pydantic import BaseModel, EmailStr, field_validator
-from .models import JobStatus, PlagiarismType, ReviewStatus, Role
+from .models import AuditAction, JobStatus, PlagiarismType, ReviewStatus, Role
 
 
 # --- Auth ---
@@ -20,19 +20,39 @@ class UserOut(BaseModel):
     email: str
     name: str
     role: Role
+    is_active: bool
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+# --- Course ---
+
+class CourseCreate(BaseModel):
+    title: str
+    code: str
+    description: str | None = None
+
+class CourseOut(BaseModel):
+    id: int
+    title: str
+    code: str
+    description: str | None
+    lecturer_id: int
+    created_at: datetime
     model_config = {"from_attributes": True}
 
 
 # --- Exam ---
 
 class ExamCreate(BaseModel):
+    course_id: int
     title: str
-    course: str
     description: str | None = None
     opens_at: datetime
     closes_at: datetime
     allowed_formats: str = "pdf,docx,txt"
     max_file_mb: int = 10
+    similarity_threshold: float = 0.4
 
     @field_validator("closes_at")
     @classmethod
@@ -43,14 +63,14 @@ class ExamCreate(BaseModel):
 
 class ExamOut(BaseModel):
     id: int
+    course_id: int
     title: str
-    course: str
     description: str | None
     opens_at: datetime
     closes_at: datetime
     allowed_formats: str
     max_file_mb: int
-    lecturer_id: int
+    similarity_threshold: float
     model_config = {"from_attributes": True}
 
 
@@ -61,11 +81,11 @@ class SubmissionOut(BaseModel):
     exam_id: int
     student_id: int
     uploaded_at: datetime
-    file_path: str
+    originality_score: float | None
     model_config = {"from_attributes": True}
 
 
-# --- Plagiarism Job ---
+# --- Job ---
 
 class JobOut(BaseModel):
     id: int
@@ -102,6 +122,8 @@ class PairOut(BaseModel):
     submission_a_id: int
     submission_b_id: int
     similarity_score: float
+    jaccard_score: float | None
+    originality_score: float | None
     fragments: list[FragmentOut] = []
     type_result: TypeResultOut | None = None
     review: "ReviewOut | None" = None
@@ -122,5 +144,20 @@ class ReviewOut(BaseModel):
     notes: str | None
     decided_at: datetime
     model_config = {"from_attributes": True}
+
+
+# --- Audit ---
+
+class AuditLogOut(BaseModel):
+    id: int
+    user_id: int | None
+    action: AuditAction
+    target_id: int | None
+    target_type: str | None
+    detail: str | None
+    ip_address: str | None
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
 
 PairOut.model_rebuild()

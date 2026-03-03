@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
 
 
 @dataclass
@@ -11,109 +10,110 @@ class Fragment:
     end_a: int
     start_b: int
     end_b: int
-    length: int  # token count
+    length: int
 
 
 @dataclass
 class SimilarityResult:
-    score: float           # 0.0 – 1.0 cosine similarity
+    cosine_score: float       # TF-IDF cosine
+    jaccard_score: float      # shingle-set Jaccard
+    originality_score: float  # 1 - max(cosine, jaccard)
     fragments: list[Fragment]
 
 
 def compare(text_a: str, text_b: str, shingle_size: int = 6, min_fragment_tokens: int = 8) -> SimilarityResult:
-    score = _cosine_score(text_a, text_b)
-    fragments = _extract_fragments(text_a, text_b, shingle_size, min_fragment_tokens)
-    return SimilarityResult(score=round(score, 4), fragments=fragments)
+    cosine  = _cosine_score(text_a, text_b)
+    jaccard = _jaccard_score(text_a, text_b, shingle_size)
+    frags   = _extract_fragments(text_a, text_b, shingle_size, min_fragment_tokens)
+    return SimilarityResult(
+        cosine_score=round(cosine, 4),
+        jaccard_score=round(jaccard, 4),
+        originality_score=round(1.0 - max(cosine, jaccard), 4),
+        fragments=frags,
+    )
 
 
 def bulk_compare(texts: dict[int, str], min_score: float = 0.15) -> list[tuple[int, int, SimilarityResult]]:
-    """
-    Compare all pairs. texts is {submission_id: normalised_text}.
-    Returns only pairs above min_score threshold.
-    """
     ids = list(texts.keys())
     if len(ids) < 2:
         return []
 
     corpus = [texts[i] for i in ids]
-    vec = TfidfVectorizer()
+    vec    = TfidfVectorizer()
     matrix = vec.fit_transform(corpus)
-    sim_matrix = cosine_similarity(matrix)
+    cos_matrix = cosine_similarity(matrix)
 
     results = []
     for i in range(len(ids)):
         for j in range(i + 1, len(ids)):
-            score = float(sim_matrix[i, j])
-            if score < min_score:
+            cosine  = float(cos_matrix[i, j])
+            jaccard = _jaccard_score(corpus[i], corpus[j])
+            if max(cosine, jaccard) < min_score:
                 continue
-            fragments = _extract_fragments(corpus[i], corpus[j])
-            results.append((ids[i], ids[j], SimilarityResult(score=round(score, 4), fragments=fragments)))
+            frags = _extract_fragments(corpus[i], corpus[j])
+            results.append((ids[i], ids[j], SimilarityResult(
+                cosine_score=round(cosine, 4),
+                jaccard_score=round(jaccard, 4),
+                originality_score=round(1.0 - max(cosine, jaccard), 4),
+                fragments=frags,
+            )))
 
-    return sorted(results, key=lambda x: x[2].score, reverse=True)
+    return sorted(results, key=lambda x: x[2].cosine_score, reverse=True)
 
 
 # --- internals ---
 
 def _cosine_score(a: str, b: str) -> float:
-    vec = TfidfVectorizer()
     try:
-        matrix = vec.fit_transform([a, b])
-        return float(cosine_similarity(matrix[0], matrix[1])[0, 0])
+        m = TfidfVectorizer().fit_transform([a, b])
+        return float(cosine_similarity(m[0], m[1])[0, 0])
     except ValueError:
         return 0.0
 
 
+def _jaccard_score(a: str, b: str, k: int = 6) -> float:
+    """Jaccard similarity on k-shingle sets."""
+    tokens_a, tokens_b = a.split(), b.split()
+    set_a = {tuple(tokens_a[i:i+k]) for i in range(max(1, len(tokens_a) - k + 1))}
+    set_b = {tuple(tokens_b[i:i+k]) for i in range(max(1, len(tokens_b) - k + 1))}
+    union = set_a | set_b
+    return len(set_a & set_b) / len(union) if union else 0.0
+
+
 def _shingles(tokens: list[str], k: int) -> dict[tuple, int]:
-    """Map each k-gram to its first occurrence index."""
     return {tuple(tokens[i:i+k]): i for i in range(len(tokens) - k + 1)}
 
 
-def _extract_fragments(
-    text_a: str,
-    text_b: str,
-    shingle_size: int = 6,
-    min_tokens: int = 8,
-) -> list[Fragment]:
+def _extract_fragments(text_a: str, text_b: str, shingle_size: int = 6, min_tokens: int = 8) -> list[Fragment]:
     tokens_a = text_a.split()
     tokens_b = text_b.split()
-
     shingles_b = _shingles(tokens_b, shingle_size)
 
-    # Find all matching window start positions
-    raw_matches: list[tuple[int, int]] = []  # (start_a, start_b)
-    for i in range(len(tokens_a) - shingle_size + 1):
-        key = tuple(tokens_a[i:i + shingle_size])
-        if key in shingles_b:
-            raw_matches.append((i, shingles_b[key]))
-
-    if not raw_matches:
-        return []
-
-    # Extend each seed match as far as tokens agree
     fragments: list[Fragment] = []
     used_a: set[int] = set()
 
-    for start_a, start_b in raw_matches:
-        if start_a in used_a:
+    for i in range(len(tokens_a) - shingle_size + 1):
+        if i in used_a:
+            continue
+        key = tuple(tokens_a[i:i + shingle_size])
+        if key not in shingles_b:
             continue
 
-        end_a, end_b = start_a + shingle_size, start_b + shingle_size
+        start_b = shingles_b[key]
+        end_a, end_b = i + shingle_size, start_b + shingle_size
 
-        # extend right
-        while (end_a < len(tokens_a) and end_b < len(tokens_b)
-               and tokens_a[end_a] == tokens_b[end_b]):
+        while end_a < len(tokens_a) and end_b < len(tokens_b) and tokens_a[end_a] == tokens_b[end_b]:
             end_a += 1
             end_b += 1
 
-        length = end_a - start_a
+        length = end_a - i
         if length < min_tokens:
             continue
 
-        used_a.update(range(start_a, end_a))
-        fragment_tokens = tokens_a[start_a:end_a]
+        used_a.update(range(i, end_a))
         fragments.append(Fragment(
-            text=" ".join(fragment_tokens),
-            start_a=start_a, end_a=end_a,
+            text=" ".join(tokens_a[i:end_a]),
+            start_a=i, end_a=end_a,
             start_b=start_b, end_b=end_b,
             length=length,
         ))
@@ -122,23 +122,19 @@ def _extract_fragments(
 
 
 def _merge_overlapping(fragments: list[Fragment]) -> list[Fragment]:
-    """Merge fragments that are adjacent or overlapping in doc A."""
     if not fragments:
         return []
-    sorted_frags = sorted(fragments, key=lambda f: f.start_a)
-    merged = [sorted_frags[0]]
-    for cur in sorted_frags[1:]:
-        prev = merged[-1]
-        if cur.start_a <= prev.end_a:  # overlap or adjacent
-            new_end_a = max(prev.end_a, cur.end_a)
-            new_end_b = max(prev.end_b, cur.end_b)
-            tokens = cur.text.split() if cur.end_a > prev.end_a else []
-            merged[-1] = Fragment(
-                text=prev.text + (" " + " ".join(tokens) if tokens else ""),
-                start_a=prev.start_a, end_a=new_end_a,
-                start_b=prev.start_b, end_b=new_end_b,
-                length=new_end_a - prev.start_a,
+    out = [sorted(fragments, key=lambda f: f.start_a)[0]]
+    for cur in sorted(fragments, key=lambda f: f.start_a)[1:]:
+        prev = out[-1]
+        if cur.start_a <= prev.end_a:
+            extra = cur.text.split()[prev.end_a - cur.start_a:] if cur.end_a > prev.end_a else []
+            out[-1] = Fragment(
+                text=prev.text + (" " + " ".join(extra) if extra else ""),
+                start_a=prev.start_a, end_a=max(prev.end_a, cur.end_a),
+                start_b=prev.start_b, end_b=max(prev.end_b, cur.end_b),
+                length=max(prev.end_a, cur.end_a) - prev.start_a,
             )
         else:
-            merged.append(cur)
-    return merged
+            out.append(cur)
+    return out

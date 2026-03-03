@@ -9,7 +9,7 @@ engine = create_engine(
 settings.database_url else {}
 )
 
-SessionLocal = sessionmaker(bind=engine, autocommit=False, autoFlush=False)
+SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 
 class Base(DeclarativeBase):

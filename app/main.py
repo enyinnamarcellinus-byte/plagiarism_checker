@@ -1,4 +1,5 @@
 from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
@@ -6,15 +7,24 @@ from .auth import create_token, hash_password, verify_password
 from .database import Base, engine, get_db
 from .models import User
 from .schemas import TokenOut, UserCreate, UserOut
-from .routers import exams, submissions
+from .routers import auth, exams, submissions, reports, dashboard
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Plagiarism Detection System")
+app.include_router(auth.router)
 app.include_router(exams.router)
 app.include_router(submissions.router)
+app.include_router(reports.router)
+app.include_router(dashboard.router)
 
 
+@app.get("/")
+def root():
+    return RedirectResponse(url="/login")
+
+
+# JSON API auth (for API clients / Swagger)
 @app.post("/auth/token", response_model=TokenOut)
 def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(User).filter_by(email=form.username).first()
