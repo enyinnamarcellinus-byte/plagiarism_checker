@@ -1,0 +1,55 @@
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem">
+  <div class="card">
+    <h2>Submission {{ pair.submission_a_id }}</h2>
+    <div style="font-size:0.85rem;line-height:1.7;max-height:400px;overflow-y:auto">
+      {% for seg in highlights_a %}
+        {% if seg.matched %}
+          <mark style="background:#ffeeba;padding:0.1rem 0.2rem;border-radius:3px">{{ seg.text }}</mark>
+        {% else %}
+          {{ seg.text }}
+        {% endif %}
+        {{ " " }}
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Submission {{ pair.submission_b_id }}</h2>
+    <div style="font-size:0.85rem;line-height:1.7;max-height:400px;overflow-y:auto">
+      {% for seg in highlights_b %}
+        {% if seg.matched %}
+          <mark style="background:#ffeeba;padding:0.1rem 0.2rem;border-radius:3px">{{ seg.text }}</mark>
+        {% else %}
+          {{ seg.text }}
+        {% endif %}
+        {{ " " }}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:1rem">
+  <h2>Record decision</h2>
+  <form hx-post="/dashboard/pairs/{{ pair.id }}/review"
+        hx-target="#review-badge-{{ pair.id }}"
+        hx-swap="innerHTML"
+        style="display:flex;gap:1rem;align-items:flex-end">
+    <div>
+      <label style="font-size:0.85rem;display:block;margin-bottom:0.3rem">Status</label>
+      <select name="status" style="padding:0.4rem;border-radius:4px;border:1px solid #ccc">
+        {% for s in review_statuses %}
+          <option value="{{ s }}" {% if pair.review and pair.review.status == s %}selected{% endif %}>
+            {{ s | capitalize }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="flex:1">
+      <label style="font-size:0.85rem;display:block;margin-bottom:0.3rem">Notes</label>
+      <input name="notes" type="text" placeholder="Optional notes…"
+             value="{{ pair.review.notes if pair.review and pair.review.notes else '' }}"
+             style="width:100%;padding:0.4rem;border-radius:4px;border:1px solid #ccc">
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm">Save</button>
+  </form>
+</div>

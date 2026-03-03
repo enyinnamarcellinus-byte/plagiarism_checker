@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{{ exam.title }}{% endblock %}
+{% block content %}
+<h1>{{ exam.title }} <small style="font-size:1rem;color:#666">· {{ exam.course }}</small></h1>
+
+<div class="card" style="display:flex;gap:2rem;align-items:center;padding:1rem 1.5rem">
+  <div>
+    <strong>Analysis status:</strong>
+    {% if job %}
+      <span class="badge badge-{{ job.status }}">{{ job.status }}</span>
+      {% if job.status == "running" %}
+        <span style="margin-left:0.5rem;font-size:0.85rem;color:#666"
+              hx-get="/dashboard/exams/{{ exam.id }}"
+              hx-trigger="every 5s"
+              hx-target="body"
+              hx-swap="outerHTML">⟳ refreshing…</span>
+      {% endif %}
+    {% else %}
+      <span class="badge badge-pending">awaiting submissions</span>
+    {% endif %}
+  </div>
+  <div>
+    <label style="font-size:0.9rem"><strong>Min similarity:</strong>
+      <input type="range" min="0" max="1" step="0.05" value="{{ min_score }}"
+             hx-get="/dashboard/exams/{{ exam.id }}"
+             hx-trigger="change"
+             hx-target="#pairs-table"
+             hx-swap="outerHTML"
+             hx-include="this"
+             name="min_score">
+      <span id="score-label">{{ "%.0f"|format(min_score * 100) }}%</span>
+    </label>
+  </div>
+</div>
+
+<div id="pairs-table">
+  {% include "dashboard/fragments/pairs_table.html" %}
+</div>
+{% endblock %}

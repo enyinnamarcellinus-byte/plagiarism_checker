@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}My Exams · PlagCheck{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold text-slate-900">My Exams</h1>
+</div>
+
+{% if exams %}
+<div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 tracking-wide">
+      <tr>
+        <th class="px-5 py-3 text-left">Title</th>
+        <th class="px-5 py-3 text-left">Course</th>
+        <th class="px-5 py-3 text-left">Opens</th>
+        <th class="px-5 py-3 text-left">Closes</th>
+        <th class="px-5 py-3 text-left">Analysis</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for exam in exams %}
+      <tr class="hover:bg-slate-50 transition">
+        <td class="px-5 py-4 font-medium">
+          <a href="/dashboard/exams/{{ exam.id }}" class="text-slate-900 hover:text-blue-600 hover:underline">
+            {{ exam.title }}
+          </a>
+        </td>
+        <td class="px-5 py-4 text-slate-600">{{ exam.course }}</td>
+        <td class="px-5 py-4 text-slate-600">{{ exam.opens_at.strftime("%d %b %Y %H:%M") }}</td>
+        <td class="px-5 py-4 text-slate-600">{{ exam.closes_at.strftime("%d %b %Y %H:%M") }}</td>
+        <td class="px-5 py-4">
+          {% set status = exam.job.status if exam.job else "no submissions" %}
+          {% set colors = {
+            "pending":   "bg-yellow-100 text-yellow-800",
+            "running":   "bg-blue-100 text-blue-800",
+            "completed": "bg-green-100 text-green-800",
+            "failed":    "bg-red-100 text-red-800",
+            "no submissions": "bg-slate-100 text-slate-500"
+          } %}
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ colors[status] }}">
+            {{ status }}
+          </span>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="bg-white rounded-2xl border border-slate-200 p-10 text-center text-slate-400">
+  No exams yet.
+</div>
+{% endif %}
+
+{% endblock %}
