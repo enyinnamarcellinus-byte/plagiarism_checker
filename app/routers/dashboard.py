@@ -6,7 +6,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from ..auth import admin_only, lecturer_or_admin
+from ..auth import lecturer_or_admin
 from ..database import get_db
 from ..models import (
     AuditAction,
@@ -42,62 +42,6 @@ def dashboard_home(
         "dashboard/home.html",
         {"request": request, "user": user, "courses": courses},
     )
-
-
-@router.get("/courses/new", response_class=HTMLResponse)
-def new_course_form(
-    request: Request,
-    db: Annotated[Session, Depends(get_db)],
-    user: Annotated[User, Depends(admin_only)],
-):
-    lecturers = db.query(User).filter(User.role.in_([Role.lecturer, Role.admin])).all()
-    return templates.TemplateResponse(
-        "dashboard/course.html",
-        {"request": request, "user": user, "error": None, "lecturers": lecturers},
-    )
-
-
-@router.post("/courses/new", response_class=HTMLResponse)
-async def create_course_from_dashboard(
-    request: Request,
-    db: Annotated[Session, Depends(get_db)],
-    user: Annotated[User, Depends(admin_only)],
-    code: str = Form(...),
-    title: str = Form(...),
-    description: str = Form(""),
-    lecturer_id: int = Form(...),
-    department_ids: list[int] = Form(default=[]),
-):
-    lecturer = db.get(User, lecturer_id)
-    if not lecturer or lecturer.role not in (Role.lecturer, Role.admin):
-        lecturers = db.query(User).filter(User.role.in_([Role.lecturer, Role.admin])).all()
-        return templates.TemplateResponse(
-            "dashboard/course.html",
-            {
-                "request": request,
-                "user": user,
-                "error": "Selected user must be a lecturer or admin.",
-                "lecturers": lecturers,
-            },
-            status_code=400,
-        )
-
-    course = Course(
-        code=code.strip(),
-        title=title.strip(),
-        description=description.strip() or None,
-        lecturer_id=lecturer.id,
-    )
-    db.add(course)
-    db.flush()
-    for department_id in department_ids:
-        db.add(CourseDepartment(course_id=course.id, department_id=department_id))
-    db.commit()
-    audit(
-        db, AuditAction.course_created, user_id=user.id, target_id=course.id, target_type="course"
-    )
-    return RedirectResponse(url="/admin/", status_code=303)
-
 
 # --- Exam creation ---
 
@@ -204,7 +148,7 @@ def exam_detail(
     min_score: float = 0.3,
 ):
     exam = db.get(Exam, exam_id)
-    if not exam or exam.course.lecturer_id != user.id:
+    if not exam or (user.role == Role.lecturer and exam.course.lecturer_id != user.id):
         raise HTTPException(status_code=404)
 
     audit(

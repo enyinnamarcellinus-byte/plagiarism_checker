@@ -172,86 +172,75 @@ def unenroll_student(
     db.commit()
 
 
-# ── HTML Dashboard ────────────────────────────────────────────────────────────
 
+# ── HTML Pages ────────────────────────────────────────────────────────────────
 
 @router.get("/", response_class=HTMLResponse)
-def admin_dashboard(
+def admin_index(
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(admin_only)],
+):
+    total_users = db.query(User).count()
+    total_courses = db.query(Course).count()
+    total_departments = db.query(Department).count()
+    total_submissions = db.query(Enrollment).count()
+    logs = db.query(AuditLog).order_by(AuditLog.created_at.desc()).limit(20).all()
+    return templates.TemplateResponse("admin/index.html", {
+        "request": request, "user": user,
+        "total_users": total_users, "total_courses": total_courses,
+        "total_departments": total_departments, "total_submissions": total_submissions,
+        "logs": logs,
+    })
+
+
+@router.get("/users-list", response_class=HTMLResponse)
+def admin_users(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[User, Depends(admin_only)],
 ):
     users = db.query(User).order_by(User.created_at.desc()).all()
-    courses = db.query(Course).order_by(Course.created_at.desc()).all()
-    logs = db.query(AuditLog).order_by(AuditLog.created_at.desc()).limit(50).all()
-    lecturers = [u for u in users if u.role in (Role.lecturer, Role.admin)]
-    students = [u for u in users if u.role == Role.student]
     departments = db.query(Department).order_by(Department.name).all()
-    return templates.TemplateResponse(
-        "admin/dashboard.html",
-        {
-            "request": request,
-            "user": user,
-            "users": users,
-            "courses": courses,
-            "lecturers": lecturers,
-            "students": students,
-            "departments": departments,
-            "logs": logs,
-        },
-    )
+    return templates.TemplateResponse("admin/users.html", {
+        "request": request, "user": user,
+        "users": users, "departments": departments,
+    })
 
 
-@router.post("/courses/new", response_class=HTMLResponse)
-async def create_course(
+@router.get("/departments-list", response_class=HTMLResponse)
+def admin_departments(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[User, Depends(admin_only)],
-    title: str = Form(...),
-    code: str = Form(...),
-    description: str = Form(""),
-    lecturer_id: int = Form(...),
-    department_ids: list[int] = Form(default=[]),
 ):
-    lecturer = db.get(User, lecturer_id)
-    if not lecturer or lecturer.role not in (Role.lecturer, Role.admin):
-        raise HTTPException(status_code=400, detail="Selected user is not a lecturer")
-    course = Course(
-        title=title, code=code, description=description or None, lecturer_id=lecturer_id
-    )
-    db.add(course)
-    db.flush()
-    for department_id in department_ids:
-        if db.get(Department, department_id):
-            db.add(CourseDepartment(course_id=course.id, department_id=department_id))
-    db.commit()
-    audit(
-        db, AuditAction.course_created, user_id=user.id, target_id=course.id, target_type="course"
-    )
-    return RedirectResponse(url="/admin/", status_code=303)
+    departments = db.query(Department).order_by(Department.name).all()
+    return templates.TemplateResponse("admin/departments.html", {
+        "request": request, "user": user, "departments": departments,
+    })
 
 
-@router.post("/courses/{course_id}/lecturer", response_class=HTMLResponse)
-async def assign_course_lecturer(
-    course_id: int,
+@router.get("/departments-list/{dept_id}", response_class=HTMLResponse)
+def admin_department_detail(
+    dept_id: int,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[User, Depends(admin_only)],
-    lecturer_id: int = Form(...),
 ):
-    course = db.get(Course, course_id)
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
-    lecturer = db.get(User, lecturer_id)
-    if not lecturer or lecturer.role not in (Role.lecturer, Role.admin):
-        raise HTTPException(status_code=400, detail="Selected user is not a lecturer")
-    course.lecturer_id = lecturer.id
-    db.commit()
-    return RedirectResponse(url="/admin/", status_code=303)
+    dept = db.get(Department, dept_id)
+    if not dept:
+        raise HTTPException(status_code=404, detail="Department not found")
+    course_ids = [l.course_id for l in db.query(CourseDepartment).filter_by(department_id=dept_id).all()]
+    courses = db.query(Course).filter(Course.id.in_(course_ids)).order_by(Course.code).all()
+    lecturers = db.query(User).filter(User.role.in_([Role.lecturer, Role.admin])).order_by(User.name).all()
+    return templates.TemplateResponse("admin/department.html", {
+        "request": request, "user": user,
+        "dept": dept, "courses": courses, "lecturers": lecturers,
+    })
 
 
-@router.post("/courses/{course_id}/delete", response_class=HTMLResponse)
-async def delete_course_form(
+@router.get("/courses-list/{course_id}", response_class=HTMLResponse)
+def admin_course_detail(
     course_id: int,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -260,52 +249,17 @@ async def delete_course_form(
     course = db.get(Course, course_id)
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
-    db.delete(course)
-    db.commit()
-    return RedirectResponse(url="/admin/", status_code=303)
+    lecturers = db.query(User).filter(User.role.in_([Role.lecturer, Role.admin])).order_by(User.name).all()
+    students = db.query(User).filter_by(role=Role.student).order_by(User.name).all()
+    enrolled_ids = {e.student_id for e in course.enrollments}
+    return templates.TemplateResponse("admin/course.html", {
+        "request": request, "user": user,
+        "course": course, "lecturers": lecturers,
+        "students": students, "enrolled_ids": enrolled_ids,
+    })
 
 
-@router.post("/enrollments/new", response_class=HTMLResponse)
-async def enroll_student_form(
-    request: Request,
-    db: Annotated[Session, Depends(get_db)],
-    user: Annotated[User, Depends(admin_only)],
-    student_id: int = Form(...),
-    course_id: int = Form(...),
-):
-    student = db.get(User, student_id)
-    course = db.get(Course, course_id)
-    if not student or student.role != Role.student:
-        raise HTTPException(status_code=400, detail="User is not a student")
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
-    enrollment = Enrollment(student_id=student_id, course_id=course_id)
-    db.add(enrollment)
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()  # already enrolled — silently ignore in UI
-    audit(
-        db,
-        AuditAction.enrollment_created,
-        user_id=user.id,
-        target_id=course_id,
-        target_type="course",
-    )
-    return RedirectResponse(url="/admin/", status_code=303)
-
-
-@router.post("/enrollments/{enrollment_id}/delete", response_class=HTMLResponse)
-async def unenroll_student_form(
-    enrollment_id: int,
-    db: Annotated[Session, Depends(get_db)],
-    user: Annotated[User, Depends(admin_only)],
-):
-    e = db.get(Enrollment, enrollment_id)
-    if e:
-        db.delete(e)
-        db.commit()
-    return RedirectResponse(url="/admin/", status_code=303)
+# ── HTML Form POSTs ───────────────────────────────────────────────────────────
 
 
 @router.post("/departments/new", response_class=HTMLResponse)
@@ -321,7 +275,107 @@ async def create_department(
         db.commit()
     except IntegrityError:
         db.rollback()
-    return RedirectResponse(url="/admin/", status_code=303)
+    return RedirectResponse(url="/admin/departments-list", status_code=303)
+
+
+@router.post("/courses/new", response_class=HTMLResponse)
+async def create_course(
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(admin_only)],
+    title: str = Form(...),
+    code: str = Form(...),
+    description: str = Form(""),
+    lecturer_id: int = Form(...),
+    dept_id: int = Form(...),
+    department_ids: list[int] = Form(default=[]),
+):
+    lecturer = db.get(User, lecturer_id)
+    if not lecturer or lecturer.role not in (Role.lecturer, Role.admin):
+        raise HTTPException(status_code=400, detail="Selected user is not a lecturer")
+    course = Course(title=title, code=code, description=description or None, lecturer_id=lecturer_id)
+    db.add(course)
+    db.flush()
+    for department_id in department_ids:
+        if db.get(Department, department_id):
+            db.add(CourseDepartment(course_id=course.id, department_id=department_id))
+    db.commit()
+    audit(db, AuditAction.course_created, user_id=user.id, target_id=course.id, target_type="course")
+    return RedirectResponse(url=f"/admin/departments-list/{dept_id}", status_code=303)
+
+
+@router.post("/courses/{course_id}/lecturer", response_class=HTMLResponse)
+async def assign_course_lecturer(
+    course_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(admin_only)],
+    lecturer_id: int = Form(...),
+):
+    course = db.get(Course, course_id)
+    if not course:
+        raise HTTPException(status_code=404)
+    lecturer = db.get(User, lecturer_id)
+    if not lecturer or lecturer.role not in (Role.lecturer, Role.admin):
+        raise HTTPException(status_code=400, detail="Selected user is not a lecturer")
+    course.lecturer_id = lecturer.id
+    db.commit()
+    return RedirectResponse(url=f"/admin/courses-list/{course_id}", status_code=303)
+
+
+@router.post("/courses/{course_id}/delete", response_class=HTMLResponse)
+async def delete_course_form(
+    course_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(admin_only)],
+):
+    course = db.get(Course, course_id)
+    if not course:
+        raise HTTPException(status_code=404)
+    # find first linked department for redirect
+    link = db.query(CourseDepartment).filter_by(course_id=course_id).first()
+    dept_id = link.department_id if link else None
+    db.delete(course)
+    db.commit()
+    redirect = f"/admin/departments-list/{dept_id}" if dept_id else "/admin/departments-list"
+    return RedirectResponse(url=redirect, status_code=303)
+
+
+@router.post("/enrollments/new", response_class=HTMLResponse)
+async def enroll_student_form(
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(admin_only)],
+    student_id: int = Form(...),
+    course_id: int = Form(...),
+):
+    student = db.get(User, student_id)
+    course = db.get(Course, course_id)
+    if not student or student.role != Role.student:
+        raise HTTPException(status_code=400)
+    if not course:
+        raise HTTPException(status_code=404)
+    enrollment = Enrollment(student_id=student_id, course_id=course_id)
+    db.add(enrollment)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+    audit(db, AuditAction.enrollment_created, user_id=user.id, target_id=course_id, target_type="course")
+    return RedirectResponse(url=f"/admin/courses-list/{course_id}", status_code=303)
+
+
+@router.post("/enrollments/{enrollment_id}/delete", response_class=HTMLResponse)
+async def unenroll_student_form(
+    enrollment_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(admin_only)],
+):
+    e = db.get(Enrollment, enrollment_id)
+    if not e:
+        raise HTTPException(status_code=404)
+    course_id = e.course_id
+    db.delete(e)
+    db.commit()
+    return RedirectResponse(url=f"/admin/courses-list/{course_id}", status_code=303)
 
 
 @router.post("/users/{user_id}/department", response_class=HTMLResponse)
@@ -337,54 +391,4 @@ async def assign_user_department(
         raise HTTPException(status_code=404)
     target.department_id = department.id
     db.commit()
-    return RedirectResponse(url="/admin/", status_code=303)
-
-
-# ── HTMX helpers ─────────────────────────────────────────────────────────────
-
-
-def _user_row_html(target: User, admin: User) -> HTMLResponse:
-    role_colors = {
-        "student": "bg-slate-100 text-slate-600",
-        "lecturer": "bg-blue-100 text-blue-700",
-        "admin": "bg-purple-100 text-purple-700",
-    }
-    rc = role_colors.get(target.role, "bg-slate-100 text-slate-600")
-    active_badge = (
-        '<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700">Active</span>'
-        if target.is_active
-        else '<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-600">Inactive</span>'
-    )
-    if target.id != admin.id:
-        role_select = (
-            f'<select hx-patch="/admin/users/{target.id}/role" hx-include="this" '
-            f'hx-target="#user-row-{target.id}" hx-swap="outerHTML" name="role" '
-            f'class="text-xs font-bold px-2 py-1 rounded-full border-0 cursor-pointer focus:outline-none {rc}">'
-            f'<option value="student" {"selected" if target.role == "student" else ""}>student</option>'
-            f'<option value="lecturer" {"selected" if target.role == "lecturer" else ""}>lecturer</option>'
-            f'<option value="admin" {"selected" if target.role == "admin" else ""}>admin</option>'
-            f"</select>"
-        )
-        action = (
-            f'<button hx-patch="/admin/users/{target.id}/deactivate" hx-confirm="Deactivate {target.name}?" '
-            f'hx-target="#user-row-{target.id}" hx-swap="outerHTML" '
-            f'class="text-xs text-red-500 hover:underline font-semibold">Deactivate</button>'
-            if target.is_active
-            else f'<button hx-patch="/admin/users/{target.id}/activate" hx-target="#user-row-{target.id}" '
-            f'hx-swap="outerHTML" class="text-xs text-green-600 hover:underline font-semibold">Activate</button>'
-        )
-    else:
-        role_select = (
-            f'<span class="px-2 py-0.5 rounded-full text-xs font-bold {rc}">{target.role}</span>'
-        )
-        action = ""
-
-    return HTMLResponse(
-        f'<tr class="hover:bg-slate-50 transition-colors" id="user-row-{target.id}">'
-        f'<td class="px-4 py-3"><p class="font-semibold text-slate-800">{target.name}</p>'
-        f'<p class="text-xs text-slate-400">{target.email}</p></td>'
-        f'<td class="px-4 py-3">{role_select}</td>'
-        f'<td class="px-4 py-3">{active_badge}</td>'
-        f'<td class="px-4 py-3 text-right">{action}</td>'
-        f"</tr>"
-    )
+    return RedirectResponse(url="/admin/users-list", status_code=303)
