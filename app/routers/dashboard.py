@@ -6,7 +6,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from ..auth import lecturer_or_admin
+from ..auth import admin_only, lecturer_or_admin
 from ..database import get_db
 from ..models import (
     AuditAction,
@@ -15,6 +15,7 @@ from ..models import (
     PlagiarismJob,
     ReviewDecision,
     ReviewStatus,
+    Role,
     SimilarityPair,
     Submission,
     User,
@@ -36,6 +37,59 @@ def dashboard_home(
         "dashboard/home.html",
         {"request": request, "user": user, "courses": courses},
     )
+
+
+
+
+@router.get("/courses/new", response_class=HTMLResponse)
+def new_course_form(
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(admin_only)],
+):
+    lecturers = db.query(User).filter(User.role.in_([Role.lecturer, Role.admin])).all()
+    return templates.TemplateResponse(
+        "dashboard/course.html",
+        {"request": request, "user": user, "error": None, "lecturers": lecturers},
+    )
+
+
+@router.post("/courses/new", response_class=HTMLResponse)
+async def create_course_from_dashboard(
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(admin_only)],
+    code: str = Form(...),
+    title: str = Form(...),
+    description: str = Form(""),
+    lecturer_id: int = Form(...),
+):
+    lecturer = db.get(User, lecturer_id)
+    if not lecturer or lecturer.role not in (Role.lecturer, Role.admin):
+        lecturers = db.query(User).filter(User.role.in_([Role.lecturer, Role.admin])).all()
+        return templates.TemplateResponse(
+            "dashboard/course.html",
+            {
+                "request": request,
+                "user": user,
+                "error": "Selected user must be a lecturer or admin.",
+                "lecturers": lecturers,
+            },
+            status_code=400,
+        )
+
+    course = Course(
+        code=code.strip(),
+        title=title.strip(),
+        description=description.strip() or None,
+        lecturer_id=lecturer.id,
+    )
+    db.add(course)
+    db.commit()
+    audit(
+        db, AuditAction.course_created, user_id=user.id, target_id=course.id, target_type="course"
+    )
+    return RedirectResponse(url="/admin/", status_code=303)
 
 
 # --- Exam creation ---

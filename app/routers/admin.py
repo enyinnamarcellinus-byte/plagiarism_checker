@@ -147,7 +147,7 @@ def admin_dashboard(
     users = db.query(User).order_by(User.created_at.desc()).all()
     courses = db.query(Course).order_by(Course.created_at.desc()).all()
     logs = db.query(AuditLog).order_by(AuditLog.created_at.desc()).limit(50).all()
-    lecturers = [u for u in users if u.role == Role.lecturer]
+    lecturers = [u for u in users if u.role in (Role.lecturer, Role.admin)]
     students = [u for u in users if u.role == Role.student]
     return templates.TemplateResponse(
         "admin/dashboard.html",
@@ -174,7 +174,7 @@ async def create_course(
     lecturer_id: int = Form(...),
 ):
     lecturer = db.get(User, lecturer_id)
-    if not lecturer or lecturer.role != Role.lecturer:
+    if not lecturer or lecturer.role not in (Role.lecturer, Role.admin):
         raise HTTPException(status_code=400, detail="Selected user is not a lecturer")
     course = Course(
         title=title, code=code, description=description or None, lecturer_id=lecturer_id
@@ -184,6 +184,40 @@ async def create_course(
     audit(
         db, AuditAction.course_created, user_id=user.id, target_id=course.id, target_type="course"
     )
+    return RedirectResponse(url="/admin/", status_code=303)
+
+
+@router.post("/courses/{course_id}/lecturer", response_class=HTMLResponse)
+async def assign_course_lecturer(
+    course_id: int,
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(admin_only)],
+    lecturer_id: int = Form(...),
+):
+    course = db.get(Course, course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    lecturer = db.get(User, lecturer_id)
+    if not lecturer or lecturer.role not in (Role.lecturer, Role.admin):
+        raise HTTPException(status_code=400, detail="Selected user is not a lecturer")
+    course.lecturer_id = lecturer.id
+    db.commit()
+    return RedirectResponse(url="/admin/", status_code=303)
+
+
+@router.post("/courses/{course_id}/delete", response_class=HTMLResponse)
+async def delete_course_form(
+    course_id: int,
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(admin_only)],
+):
+    course = db.get(Course, course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    db.delete(course)
+    db.commit()
     return RedirectResponse(url="/admin/", status_code=303)
 
 

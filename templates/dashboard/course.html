@@ -10,7 +10,7 @@
   </nav>
 
   <div class="mb-6">
-    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Lecturer Portal</p>
+    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Admin Portal</p>
     <h1 class="text-2xl font-extrabold tracking-tight">Create Course</h1>
   </div>
 
@@ -42,6 +42,17 @@
         <textarea name="description" rows="3"
                   class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
                   placeholder="Short description of the course…"></textarea>
+      </div>
+
+      <div>
+        <label class="block text-sm font-bold text-slate-700 mb-1">Assign lecturer</label>
+        <select name="lecturer_id" required
+                class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
+          <option value="" disabled selected>Select lecturer…</option>
+          {% for lecturer in lecturers %}
+          <option value="{{ lecturer.id }}">{{ lecturer.name }} ({{ lecturer.role }})</option>
+          {% endfor %}
+        </select>
       </div>
 
       <div class="flex gap-3 pt-2">
