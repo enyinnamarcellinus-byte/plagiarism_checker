@@ -1,58 +1,64 @@
 {% extends "base.html" %}
 {% block title %}Submission Report · PlagCheck{% endblock %}
 {% block content %}
+<div class="max-w-4xl mx-auto w-full px-6 py-8">
 
-<a href="/student/dashboard" class="text-sm text-slate-400 hover:text-slate-600">← Back to dashboard</a>
+  <a href="/student/dashboard" class="flex items-center gap-1 text-sm text-slate-400 hover:text-slate-600 transition-colors mb-5">
+    <span class="material-symbols-outlined" style="font-size:16px">arrow_back</span>
+    Back to dashboard
+  </a>
 
-<div class="mt-4 mb-6">
-  <h1 class="text-2xl font-bold text-slate-900">{{ exam.title }}</h1>
-  <p class="text-slate-500 text-sm mt-1">Submitted {{ sub.uploaded_at.strftime("%d %b %Y at %H:%M") }}</p>
-</div>
-
-<!-- Score card -->
-<div class="grid grid-cols-2 gap-4 mb-6">
-  <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 text-center">
-    {% if sub.originality_score is not none %}
-      {% set score = (sub.originality_score * 100)|int %}
-      {% set color = "text-green-500" if score >= 70 else ("text-amber-500" if score >= 40 else "text-red-500") %}
-      <p class="text-5xl font-black {{ color }}">{{ score }}%</p>
-      <p class="text-slate-500 text-sm mt-2">Originality Score</p>
-      <p class="text-xs text-slate-400 mt-1">
-        {% if score >= 70 %}Low similarity detected{% elif score >= 40 %}Moderate similarity detected{% else %}High similarity detected{% endif %}
-      </p>
-    {% else %}
-      <p class="text-2xl font-bold text-slate-300">Pending</p>
-      <p class="text-slate-400 text-sm mt-2">Analysis not yet complete</p>
-    {% endif %}
+  <div class="mb-6">
+    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Submission Report</p>
+    <h1 class="text-2xl font-extrabold tracking-tight">{{ exam.title }}</h1>
+    <p class="text-slate-400 text-sm mt-1">Submitted {{ sub.uploaded_at.strftime("%d %b %Y at %H:%M") }}</p>
   </div>
 
-  <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-    <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Submission Info</h3>
-    <dl class="space-y-2 text-sm">
-      <div class="flex justify-between">
-        <dt class="text-slate-400">Exam</dt>
-        <dd class="font-medium text-slate-700">{{ exam.title }}</dd>
-      </div>
-      <div class="flex justify-between">
-        <dt class="text-slate-400">File</dt>
-        <dd class="font-medium text-slate-700 truncate max-w-xs">{{ sub.file_path.split("/")[-1] }}</dd>
-      </div>
-      <div class="flex justify-between">
-        <dt class="text-slate-400">Uploaded</dt>
-        <dd class="font-medium text-slate-700">{{ sub.uploaded_at.strftime("%d %b %Y %H:%M") }}</dd>
-      </div>
-      <div class="flex justify-between">
-        <dt class="text-slate-400">Flagged pairs</dt>
-        <dd class="font-medium text-slate-700">{{ pairs | length }}</dd>
-      </div>
-    </dl>
+  <div class="grid grid-cols-2 gap-5 mb-6">
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-8 flex flex-col items-center justify-center text-center">
+      {% if sub.originality_score is not none %}
+        {% set score = (sub.originality_score * 100)|int %}
+        {% set color = "text-green-500" if score >= 70 else ("text-amber-500" if score >= 40 else "text-red-500") %}
+        <p class="text-6xl font-black {{ color }}">{{ score }}%</p>
+        <p class="text-slate-500 text-sm mt-2 font-semibold">Originality Score</p>
+        <p class="text-xs text-slate-400 mt-1">
+          {% if score >= 70 %}Low similarity detected{% elif score >= 40 %}Moderate similarity detected{% else %}High similarity detected{% endif %}
+        </p>
+      {% else %}
+        <span class="material-symbols-outlined text-slate-300 block mb-2" style="font-size:36px">pending</span>
+        <p class="text-lg font-bold text-slate-300">Pending</p>
+        <p class="text-slate-400 text-sm mt-1">Analysis not yet complete</p>
+      {% endif %}
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+      <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Submission Info</h3>
+      <dl class="space-y-3 text-sm">
+        <div class="flex justify-between items-center">
+          <dt class="text-slate-400 font-medium">Exam</dt>
+          <dd class="font-semibold text-slate-700">{{ exam.title }}</dd>
+        </div>
+        <div class="flex justify-between items-center">
+          <dt class="text-slate-400 font-medium">File</dt>
+          <dd class="font-semibold text-slate-700 truncate max-w-[180px]">{{ sub.file_path.split("/")[-1] }}</dd>
+        </div>
+        <div class="flex justify-between items-center">
+          <dt class="text-slate-400 font-medium">Uploaded</dt>
+          <dd class="font-semibold text-slate-700">{{ sub.uploaded_at.strftime("%d %b %Y %H:%M") }}</dd>
+        </div>
+        <div class="flex justify-between items-center">
+          <dt class="text-slate-400 font-medium">Flagged pairs</dt>
+          <dd class="font-semibold text-slate-700">{{ pairs | length }}</dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+
+  <div class="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 flex gap-3">
+    <span class="material-symbols-outlined text-amber-500 mt-0.5" style="font-size:18px">info</span>
+    <p class="text-sm text-amber-800">
+      <strong>Note:</strong> Similarity scores are provided for transparency only.
+      Academic judgement rests entirely with your lecturer. A high similarity score does not automatically constitute a finding of misconduct.
+    </p>
   </div>
 </div>
-
-<!-- Notice -->
-<div class="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 text-sm text-amber-800 mb-6">
-  <strong>Note:</strong> Similarity scores are provided for transparency only.
-  Academic judgement rests entirely with your lecturer. A high similarity score does not automatically constitute a finding of misconduct.
-</div>
-
-{% endblock %}  
+{% endblock %}

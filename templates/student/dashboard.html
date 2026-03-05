@@ -1,77 +1,81 @@
 {% extends "base.html" %}
-{% block title %}My Submissions · PlagCheck{% endblock %}
+{% block title %}My Dashboard · PlagCheck{% endblock %}
 {% block content %}
+<div class="max-w-4xl mx-auto w-full px-6 py-8">
 
-<h1 class="text-2xl font-bold text-slate-900 mb-6">My Dashboard</h1>
+  <div class="mb-8">
+    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Student Portal</p>
+    <h1 class="text-2xl font-extrabold tracking-tight">My Dashboard</h1>
+  </div>
 
-<!-- Open exams -->
-<div class="mb-8">
-  <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Open for Submission</h2>
-  {% if open_exams %}
-  <div class="grid gap-3">
-    {% for exam in open_exams %}
-    <div class="bg-white rounded-xl border border-slate-200 px-5 py-4 flex items-center justify-between shadow-sm">
-      <div>
-        <p class="font-semibold text-slate-800">{{ exam.title }}</p>
-        <p class="text-sm text-slate-400 mt-0.5">Closes {{ exam.closes_at.strftime("%d %b %Y %H:%M") }}</p>
+  <div class="mb-8">
+    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Open for Submission</h2>
+    {% if open_exams %}
+    <div class="flex flex-col gap-3">
+      {% for exam in open_exams %}
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm px-5 py-4 flex items-center justify-between">
+        <div>
+          <p class="font-bold text-slate-800">{{ exam.title }}</p>
+          <p class="text-sm text-slate-400 mt-0.5">Closes {{ exam.closes_at.strftime("%d %b %Y %H:%M") }}</p>
+        </div>
+        <a href="/submissions/{{ exam.id }}"
+           class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">
+          <span class="material-symbols-outlined" style="font-size:16px">upload_file</span>
+          Submit
+        </a>
       </div>
-      <a href="/submissions/{{ exam.id }}"
-         class="text-sm bg-slate-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-slate-700 transition">
-        Submit
-      </a>
+      {% endfor %}
     </div>
-    {% endfor %}
+    {% else %}
+    <div class="bg-white rounded-xl border border-slate-200 p-8 text-center">
+      <span class="material-symbols-outlined text-slate-300 block mb-2" style="font-size:36px">event_available</span>
+      <p class="text-slate-400 text-sm font-medium">No exams currently open.</p>
+    </div>
+    {% endif %}
   </div>
-  {% else %}
-  <div class="bg-white rounded-xl border border-slate-200 p-6 text-center text-slate-400 text-sm">
-    No exams currently open.
-  </div>
-  {% endif %}
-</div>
 
-<!-- Past submissions -->
-<div>
-  <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">My Submissions</h2>
-  {% if submissions %}
-  <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-    <table class="w-full text-sm">
-      <thead class="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 tracking-wide">
-        <tr>
-          <th class="px-5 py-3 text-left">Exam</th>
-          <th class="px-5 py-3 text-left">Submitted</th>
-          <th class="px-5 py-3 text-left">Originality Score</th>
-          <th class="px-5 py-3"></th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-slate-100">
-        {% for sub in submissions %}
-        <tr class="hover:bg-slate-50 transition">
-          <td class="px-5 py-4 font-medium text-slate-800">{{ sub.exam.title }}</td>
-          <td class="px-5 py-4 text-slate-500">{{ sub.uploaded_at.strftime("%d %b %Y %H:%M") }}</td>
-          <td class="px-5 py-4">
-            {% if sub.originality_score is not none %}
-              {% set score = (sub.originality_score * 100)|int %}
-              {% set color = "text-green-600" if score >= 70 else ("text-amber-500" if score >= 40 else "text-red-600") %}
-              <span class="font-bold {{ color }}">{{ score }}%</span>
-              <span class="text-slate-400 text-xs ml-1">original</span>
-            {% else %}
-              <span class="text-slate-300 text-xs">Pending analysis</span>
-            {% endif %}
-          </td>
-          <td class="px-5 py-4 text-right">
-            <a href="/student/submissions/{{ sub.id }}"
-               class="text-xs text-blue-600 hover:underline font-medium">View report →</a>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div>
+    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">My Submissions</h2>
+    {% if submissions %}
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-xs uppercase text-slate-500 tracking-wider font-semibold border-b border-slate-100">
+          <tr>
+            <th class="px-5 py-3 text-left">Exam</th>
+            <th class="px-5 py-3 text-left">Submitted</th>
+            <th class="px-5 py-3 text-left">Originality</th>
+            <th class="px-5 py-3"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for sub in submissions %}
+          <tr class="hover:bg-slate-50 transition-colors">
+            <td class="px-5 py-4 font-semibold text-slate-800">{{ sub.exam.title }}</td>
+            <td class="px-5 py-4 text-slate-500 text-xs">{{ sub.uploaded_at.strftime("%d %b %Y %H:%M") }}</td>
+            <td class="px-5 py-4">
+              {% if sub.originality_score is not none %}
+                {% set score = (sub.originality_score * 100)|int %}
+                {% set color = "text-green-600" if score >= 70 else ("text-amber-500" if score >= 40 else "text-red-600") %}
+                <span class="font-black text-lg {{ color }}">{{ score }}%</span>
+                <span class="text-slate-400 text-xs ml-1">original</span>
+              {% else %}
+                <span class="text-slate-300 text-xs">Pending analysis</span>
+              {% endif %}
+            </td>
+            <td class="px-5 py-4 text-right">
+              <a href="/student/submissions/{{ sub.id }}" class="text-xs text-primary font-semibold hover:underline">View report →</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="bg-white rounded-xl border border-slate-200 p-10 text-center">
+      <span class="material-symbols-outlined text-slate-300 block mb-2" style="font-size:36px">description</span>
+      <p class="text-slate-400 text-sm font-medium">No submissions yet.</p>
+    </div>
+    {% endif %}
   </div>
-  {% else %}
-  <div class="bg-white rounded-2xl border border-slate-200 p-10 text-center text-slate-400 text-sm">
-    No submissions yet.
-  </div>
-  {% endif %}
 </div>
-
 {% endblock %}

@@ -1,86 +1,87 @@
 {% extends "base.html" %}
 {% block title %}Admin · PlagCheck{% endblock %}
 {% block content %}
+<div class="max-w-6xl mx-auto w-full px-6 py-8">
 
-<h1 class="text-2xl font-bold text-slate-900 mb-6">Admin Dashboard</h1>
-
-<div class="grid grid-cols-2 gap-6">
-
-  <!-- User management -->
-  <div>
-    <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Users</h2>
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-      <table class="w-full text-sm">
-        <thead class="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 tracking-wide">
-          <tr>
-            <th class="px-4 py-3 text-left">Name</th>
-            <th class="px-4 py-3 text-left">Role</th>
-            <th class="px-4 py-3 text-left">Status</th>
-            <th class="px-4 py-3"></th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">
-          {% for u in users %}
-          <tr class="hover:bg-slate-50">
-            <td class="px-4 py-3">
-              <p class="font-medium text-slate-800">{{ u.name }}</p>
-              <p class="text-xs text-slate-400">{{ u.email }}</p>
-            </td>
-            <td class="px-4 py-3">
-              {% set role_colors = {"student": "bg-slate-100 text-slate-600", "lecturer": "bg-blue-100 text-blue-700", "admin": "bg-purple-100 text-purple-700"} %}
-              <span class="px-2 py-0.5 rounded-full text-xs font-medium {{ role_colors[u.role] }}">{{ u.role }}</span>
-            </td>
-            <td class="px-4 py-3">
-              {% if u.is_active %}
-                <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Active</span>
-              {% else %}
-                <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-600">Inactive</span>
-              {% endif %}
-            </td>
-            <td class="px-4 py-3 text-right">
-              {% if u.id != user.id %}
-                {% if u.is_active %}
-                <button hx-patch="/admin/users/{{ u.id }}/deactivate"
-                        hx-confirm="Deactivate {{ u.name }}?"
-                        hx-target="closest tr"
-                        hx-swap="outerHTML"
-                        class="text-xs text-red-500 hover:underline">Deactivate</button>
-                {% else %}
-                <button hx-patch="/admin/users/{{ u.id }}/activate"
-                        hx-target="closest tr"
-                        hx-swap="outerHTML"
-                        class="text-xs text-green-600 hover:underline">Activate</button>
-                {% endif %}
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+  <div class="mb-8">
+    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Admin Portal</p>
+    <h1 class="text-2xl font-extrabold tracking-tight">System Administration</h1>
   </div>
 
-  <!-- Audit log -->
-  <div>
-    <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Recent Activity</h2>
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-      <div class="divide-y divide-slate-100 max-h-[600px] overflow-y-auto">
-        {% for log in logs %}
-        <div class="px-4 py-3 text-xs">
-          <div class="flex items-center justify-between mb-0.5">
-            <span class="font-semibold text-slate-700">{{ log.action | replace("_", " ") | title }}</span>
-            <span class="text-slate-400">{{ log.created_at.strftime("%d %b %H:%M") }}</span>
+  <div class="grid grid-cols-2 gap-6">
+    <div>
+      <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Users</h2>
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 text-xs uppercase text-slate-500 tracking-wider font-semibold border-b border-slate-100">
+            <tr>
+              <th class="px-4 py-3 text-left">User</th>
+              <th class="px-4 py-3 text-left">Role</th>
+              <th class="px-4 py-3 text-left">Status</th>
+              <th class="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {% for u in users %}
+            {% set role_colors = {"student": "bg-slate-100 text-slate-600", "lecturer": "bg-blue-100 text-blue-700", "admin": "bg-purple-100 text-purple-700"} %}
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="px-4 py-3">
+                <p class="font-semibold text-slate-800">{{ u.name }}</p>
+                <p class="text-xs text-slate-400">{{ u.email }}</p>
+              </td>
+              <td class="px-4 py-3">
+                <span class="px-2 py-0.5 rounded-full text-xs font-bold {{ role_colors[u.role] }}">{{ u.role }}</span>
+              </td>
+              <td class="px-4 py-3">
+                {% if u.is_active %}
+                  <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700">Active</span>
+                {% else %}
+                  <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-600">Inactive</span>
+                {% endif %}
+              </td>
+              <td class="px-4 py-3 text-right">
+                {% if u.id != user.id %}
+                  {% if u.is_active %}
+                  <button hx-patch="/admin/users/{{ u.id }}/deactivate"
+                          hx-confirm="Deactivate {{ u.name }}?"
+                          hx-target="closest tr"
+                          hx-swap="outerHTML"
+                          class="text-xs text-red-500 hover:underline font-semibold">Deactivate</button>
+                  {% else %}
+                  <button hx-patch="/admin/users/{{ u.id }}/activate"
+                          hx-target="closest tr"
+                          hx-swap="outerHTML"
+                          class="text-xs text-green-600 hover:underline font-semibold">Activate</button>
+                  {% endif %}
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div>
+      <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Recent Activity</h2>
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="divide-y divide-slate-100 max-h-[600px] overflow-y-auto comparison-scroll">
+          {% for log in logs %}
+          <div class="px-4 py-3">
+            <div class="flex items-center justify-between mb-0.5">
+              <span class="text-xs font-bold text-slate-700">{{ log.action | replace("_", " ") | title }}</span>
+              <span class="text-[10px] text-slate-400 font-medium">{{ log.created_at.strftime("%d %b %H:%M") }}</span>
+            </div>
+            <p class="text-xs text-slate-400">
+              {% if log.user %}{{ log.user.name }}{% else %}Unknown{% endif %}
+              {% if log.target_type %} · {{ log.target_type }} #{{ log.target_id }}{% endif %}
+              {% if log.ip_address %} · {{ log.ip_address }}{% endif %}
+            </p>
           </div>
-          <div class="text-slate-400">
-            {% if log.user %}{{ log.user.name }}{% else %}Unknown{% endif %}
-            {% if log.target_type %} · {{ log.target_type }} #{{ log.target_id }}{% endif %}
-            {% if log.ip_address %} · {{ log.ip_address }}{% endif %}
-          </div>
+          {% endfor %}
         </div>
-        {% endfor %}
       </div>
     </div>
   </div>
-
 </div>
 {% endblock %}
