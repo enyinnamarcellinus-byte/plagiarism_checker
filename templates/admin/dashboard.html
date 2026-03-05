@@ -100,7 +100,7 @@
                        class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
               </div>
               <div>
-                <label class="block text-xs font-semibold text-slate-500 mb-1">Assign Lecturer</label>
+                <label class="block text-xs font-semibold text-slate-500 mb-1">Assign Owner</label>
                 <select name="lecturer_id" required
                         class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
                   <option value="" disabled selected>Select…</option>
@@ -109,7 +109,7 @@
                   {% endfor %}
                 </select>
                 {% if not lecturers %}
-                <p class="text-xs text-amber-500 mt-1">No lecturers registered yet.</p>
+                <p class="text-xs text-amber-500 mt-1">No lecturer/admin users available yet.</p>
                 {% endif %}
               </div>
               <button type="submit"
