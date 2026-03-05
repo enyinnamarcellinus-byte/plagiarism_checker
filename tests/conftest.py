@@ -2,9 +2,11 @@ import io
 import pytest
 from datetime import datetime, timedelta, timezone, UTC
 from fastapi.testclient import TestClient
+from cryptography.fernet import Fernet
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from app.config import settings
 from app.database import Base, get_db
 from app.main import app
 from app.auth import hash_password, create_token
@@ -19,6 +21,10 @@ def _tables():
     Base.metadata.create_all(bind=_engine)
     yield
     Base.metadata.drop_all(bind=_engine)
+
+@pytest.fixture(scope="session", autouse=True)
+def _patch_settings():
+    settings.fernet_key = Fernet.generate_key().decode()
 
 
 @pytest.fixture
@@ -65,6 +71,7 @@ def student(db, department):
 def lecturer(db):
     return make_user(db, "lecturer@test.com", "Bob", Role.lecturer)
 
+
 @pytest.fixture
 def other_lecturer(db):
     return make_user(db, "other@test.com", "Carol", Role.lecturer)
@@ -92,8 +99,8 @@ def department(db) -> Department:
 
 
 @pytest.fixture
-def course(db, admin, department) -> Course:
-    c = Course(title="Computer Science 101", code="CS101", lecturer_id=admin.id)
+def course(db, lecturer, department) -> Course:
+    c = Course(title="Computer Science 101", code="CS101", lecturer_id=lecturer.id)
     db.add(c)
     db.flush()
     db.add(CourseDepartment(course_id=c.id, department_id=department.id))

@@ -51,7 +51,7 @@ def deactivate_user(
         db, AuditAction.user_deactivated, user_id=admin.id, target_id=target.id, target_type="user"
     )
     db.refresh(target)
-    return _user_row_html(target, admin)
+    return target
 
 
 @router.patch("/users/{user_id}/activate")
@@ -67,7 +67,7 @@ def activate_user(
     target.is_active = True
     db.commit()
     db.refresh(target)
-    return _user_row_html(target, admin)
+    return target
 
 
 @router.patch("/users/{user_id}/role")
@@ -75,7 +75,7 @@ def change_role(
     user_id: int,
     db: Annotated[Session, Depends(get_db)],
     admin: Annotated[User, Depends(admin_only)],
-    role: str = Form(...),
+    role: str
 ):
     target = db.get(User, user_id)
     if not target:
@@ -86,7 +86,7 @@ def change_role(
         raise HTTPException(status_code=400, detail=f"Invalid role: {role}")
     db.commit()
     db.refresh(target)
-    return _user_row_html(target, admin)
+    return target
 
 
 @router.get("/audit-logs", response_model=list)
