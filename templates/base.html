@@ -47,6 +47,7 @@
     <nav class="hidden md:flex items-center gap-8">
       {% if user.role == 'student' %}
         <a href="/student/dashboard" class="text-sm font-medium text-slate-600 hover:text-primary transition-colors">Dashboard</a>
+        <a href="/student/courses" class="text-sm font-medium text-slate-600 hover:text-primary transition-colors">Courses</a>
       {% elif user.role == 'admin' %}
         <a href="/admin/" class="text-sm font-medium text-slate-600 hover:text-primary transition-colors">Users &amp; Logs</a>
       {% else %}

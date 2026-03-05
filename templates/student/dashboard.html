@@ -30,6 +30,12 @@
       </div>
       {% endfor %}
     </div>
+    {% elif not enrolled_ids %}
+    <div class="bg-white rounded-xl border border-slate-200 p-8 text-center">
+      <span class="material-symbols-outlined text-slate-300 block mb-2" style="font-size:36px">school</span>
+      <p class="text-slate-600 text-sm font-semibold">You're not enrolled in any courses yet.</p>
+      <p class="text-slate-400 text-xs mt-1">Enrol in a course below to see available exams.</p>
+    </div>
     {% else %}
     <div class="bg-white rounded-xl border border-slate-200 p-8 text-center">
       <span class="material-symbols-outlined text-slate-300 block mb-2" style="font-size:36px">event_available</span>

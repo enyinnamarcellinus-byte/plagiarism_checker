@@ -55,4 +55,94 @@
   Academic judgement rests entirely with your lecturer. A high similarity score does not automatically constitute a finding of misconduct.
 </div>
 
-{% endblock %}  
+<!-- Similarity Matches -->
+<div class="mb-8">
+  <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Similarity Matches</h2>
+
+  {% if pairs %}
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-xs uppercase text-slate-500 tracking-wider font-semibold border-b border-slate-100">
+        <tr>
+          <th class="px-5 py-3 text-left">Matched With</th>
+          <th class="px-5 py-3 text-left">Similarity</th>
+          <th class="px-5 py-3 text-left">Pattern</th>
+          <th class="px-5 py-3 text-left">Confidence</th>
+          <th class="px-5 py-3 text-left">Review Status</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for pair in pairs %}
+        {% set other_id = pair.submission_b_id if pair.submission_a_id == sub.id else pair.submission_a_id %}
+        {% set sim = (pair.similarity_score * 100)|int %}
+        {% set sim_color = "text-red-600" if sim >= 70 else ("text-amber-500" if sim >= 40 else "text-slate-600") %}
+        <tr class="hover:bg-slate-50 transition-colors">
+          <td class="px-5 py-4 text-slate-500 font-mono text-xs">submission #{{ other_id }}</td>
+          <td class="px-5 py-4">
+            <span class="font-black text-lg {{ sim_color }}">{{ sim }}%</span>
+          </td>
+          <td class="px-5 py-4">
+            {% if pair.type_result %}
+              {% set type_labels = {
+                "verbatim": "Verbatim",
+                "near_copy": "Near-copy",
+                "patchwork": "Patchwork",
+                "structural": "Structural"
+              } %}
+              {% set type_colors = {
+                "verbatim":   "bg-red-100 text-red-700",
+                "near_copy":  "bg-orange-100 text-orange-700",
+                "patchwork":  "bg-amber-100 text-amber-700",
+                "structural": "bg-blue-100 text-blue-700"
+              } %}
+              <span class="px-2 py-0.5 rounded-full text-xs font-bold {{ type_colors[pair.type_result.predicted_type] | default('bg-slate-100 text-slate-500') }}">
+                {{ type_labels[pair.type_result.predicted_type] | default(pair.type_result.predicted_type) }}
+              </span>
+            {% else %}
+              <span class="text-slate-300 text-xs">Pending</span>
+            {% endif %}
+          </td>
+          <td class="px-5 py-4 text-slate-500 text-sm">
+            {% if pair.type_result and pair.type_result.confidence_score is not none %}
+              {{ (pair.type_result.confidence_score * 100)|int }}%
+            {% else %}
+              <span class="text-slate-300 text-xs">—</span>
+            {% endif %}
+          </td>
+          <td class="px-5 py-4">
+            {% if pair.review %}
+              {% set badge = {
+                "pending":  "bg-slate-100 text-slate-400",
+                "suspected": "bg-amber-100 text-amber-700",
+                "cleared":  "bg-green-100 text-green-700",
+                "reviewed": "bg-blue-100 text-blue-700"
+              } %}
+              <span class="px-2 py-0.5 rounded-full text-xs font-bold {{ badge[pair.review.status] | default('bg-slate-100 text-slate-400') }}">
+                {{ pair.review.status }}
+              </span>
+            {% else %}
+              <span class="text-slate-300 text-xs">Awaiting review</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% elif sub.originality_score is not none %}
+  <div class="bg-white rounded-xl border border-slate-200 p-8 text-center">
+    <span class="material-symbols-outlined text-green-400 block mb-2" style="font-size:36px">verified</span>
+    <p class="text-slate-600 font-semibold text-sm">No significant matches found.</p>
+    <p class="text-slate-400 text-xs mt-1">Your submission did not exceed the similarity threshold for this exam.</p>
+  </div>
+
+  {% else %}
+  <div class="bg-white rounded-xl border border-slate-200 p-8 text-center">
+    <span class="material-symbols-outlined text-slate-300 block mb-2" style="font-size:36px">hourglass_top</span>
+    <p class="text-slate-400 text-sm font-medium">Analysis in progress. Check back shortly.</p>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

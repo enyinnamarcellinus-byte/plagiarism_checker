@@ -83,8 +83,8 @@ def auth(user: User) -> dict:
 
 
 @pytest.fixture
-def course(db, lecturer) -> Course:
-    c = Course(title="Computer Science 101", code="CS101", lecturer_id=lecturer.id)
+def course(db, admin) -> Course:
+    c = Course(title="Computer Science 101", code="CS101", lecturer_id=admin.id)
     db.add(c)
     db.commit()
     db.refresh(c)

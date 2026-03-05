@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Courses · PlagCheck{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto w-full px-6 py-8">
+
+  <div class="mb-8">
+    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Student Portal</p>
+    <h1 class="text-2xl font-extrabold tracking-tight">Course Catalogue</h1>
+    <p class="text-slate-400 text-sm mt-1">Enrol in courses to access their exams.</p>
+  </div>
+
+  {% if courses %}
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-xs uppercase text-slate-500 tracking-wider font-semibold border-b border-slate-100">
+        <tr>
+          <th class="px-5 py-3 text-left">Course</th>
+          <th class="px-5 py-3 text-left">Lecturer</th>
+          <th class="px-5 py-3 text-right"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for course in courses %}
+        {% set enrolled = course.id in enrolled_ids %}
+        <tr class="hover:bg-slate-50 transition-colors {% if enrolled %}bg-primary/[0.02]{% endif %}">
+          <td class="px-5 py-4">
+            <div class="flex items-center gap-2">
+              <p class="font-semibold text-slate-800">{{ course.title }}</p>
+              {% if enrolled %}
+              <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary">Enrolled</span>
+              {% endif %}
+            </div>
+            <p class="text-xs text-slate-400 mt-0.5">{{ course.code }}</p>
+          </td>
+          <td class="px-5 py-4 text-slate-500 text-sm">
+            {% if course.lecturer %}{{ course.lecturer.name }}{% else %}—{% endif %}
+          </td>
+          <td class="px-5 py-4 text-right">
+            {% if enrolled %}
+            <form method="post" action="/student/courses/{{ course.id }}/unenroll" class="inline">
+              <button type="submit"
+                      class="text-xs text-slate-400 border border-slate-200 px-3 py-1.5 rounded-lg hover:border-red-300 hover:text-red-500 transition-colors font-semibold">
+                Leave
+              </button>
+            </form>
+            {% else %}
+            <form method="post" action="/student/courses/{{ course.id }}/enroll" class="inline">
+              <button type="submit"
+                      class="text-xs text-primary border border-primary/20 bg-primary/5 px-3 py-1.5 rounded-lg hover:bg-primary/10 transition-colors font-bold">
+                Enrol
+              </button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% else %}
+  <div class="bg-white rounded-xl border border-slate-200 p-14 text-center">
+    <span class="material-symbols-outlined text-slate-300 block mb-3" style="font-size:48px">school</span>
+    <p class="text-slate-400 font-medium">No courses have been created yet.</p>
+    <p class="text-slate-400 text-sm mt-1">Check back later or contact your administrator.</p>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -40,8 +40,6 @@ def dashboard_home(
 
 # --- Exam creation ---
 
-# Note: course creation is admin-only (/admin/courses/new)
-
 
 @router.get("/exams/new", response_class=HTMLResponse)
 def new_exam_form(
@@ -146,17 +144,21 @@ def exam_detail(
     )
 
     job = db.query(PlagiarismJob).filter_by(exam_id=exam_id).first()
-    sub_ids = [s.id for s in db.query(Submission.id).filter_by(exam_id=exam_id)]
+    submissions = (
+        db.query(Submission)
+        .filter_by(exam_id=exam_id)
+        .order_by(Submission.uploaded_at.desc())
+        .all()
+    )
+    sub_ids = [s.id for s in submissions]
     pairs = (
-        (
-            db.query(SimilarityPair)
-            .filter(
-                SimilarityPair.submission_a_id.in_(sub_ids),
-                SimilarityPair.similarity_score >= min_score,
-            )
-            .order_by(SimilarityPair.similarity_score.desc())
-            .all()
+        db.query(SimilarityPair)
+        .filter(
+            SimilarityPair.submission_a_id.in_(sub_ids),
+            SimilarityPair.similarity_score >= min_score,
         )
+        .order_by(SimilarityPair.similarity_score.desc())
+        .all()
         if sub_ids
         else []
     )
@@ -167,6 +169,7 @@ def exam_detail(
             "request": request,
             "exam": exam,
             "job": job,
+            "submissions": submissions,
             "pairs": pairs,
             "min_score": min_score,
             "user": user,
@@ -252,7 +255,7 @@ async def update_review(
 def _highlight(text: str, spans: list[tuple[int, int]]) -> list[dict]:
     tokens = text.split()
     matched = set()
-    for s, e in spans:  
+    for s, e in spans:
         matched.update(range(s, e))
     segments, i = [], 0
     while i < len(tokens):

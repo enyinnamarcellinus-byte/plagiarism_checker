@@ -1,106 +1,167 @@
 {% extends "base.html" %}
-{% block title %}New Exam · PlagCheck{% endblock %}
+{% block title %}{{ exam.title }} · PlagCheck{% endblock %}
 {% block content %}
-<div class="max-w-2xl mx-auto w-full px-6 py-8">
+<div class="max-w-6xl mx-auto w-full px-6 py-8">
 
-  <nav class="flex items-center gap-2 text-xs text-slate-400 font-semibold uppercase tracking-wider mb-5">
+  {# Breadcrumb #}
+  <nav class="flex items-center gap-2 text-xs text-slate-400 font-semibold uppercase tracking-wider mb-6">
     <a href="/dashboard/" class="hover:text-primary transition-colors">Dashboard</a>
     <span class="material-symbols-outlined" style="font-size:14px">chevron_right</span>
-    <span class="text-slate-700">New Exam</span>
+    <span class="text-slate-700">{{ exam.title }}</span>
   </nav>
 
-  <div class="mb-6">
-    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Lecturer Portal</p>
-    <h1 class="text-2xl font-extrabold tracking-tight">Create Exam</h1>
-  </div>
-
-  {% if error %}
-  <div class="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-    {{ error }}
-  </div>
-  {% endif %}
-
-  <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-    <form method="post" action="/dashboard/exams/new" class="space-y-5">
-
+  {# Exam header #}
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-6">
+    <div class="flex items-start justify-between gap-4">
       <div>
-        <label class="block text-sm font-bold text-slate-700 mb-1">Course</label>
-        <select name="course_id" required
-                class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
-          <option value="" disabled {% if not preselect_course %}selected{% endif %}>Select a course…</option>
-          {% for course in courses %}
-          <option value="{{ course.id }}" {% if preselect_course and course.id == preselect_course %}selected{% endif %}>{{ course.code }} — {{ course.title }}</option>
-          {% endfor %}
-        </select>
-        {% if not courses %}
-        <p class="text-xs text-amber-600 mt-1">No courses yet. <a href="/dashboard/courses/new" class="underline font-semibold">Create one first.</a></p>
+        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+          {{ exam.course.code }} · {{ exam.course.title }}
+        </p>
+        <h1 class="text-2xl font-extrabold tracking-tight text-slate-900">{{ exam.title }}</h1>
+        {% if exam.description %}
+        <p class="text-slate-500 text-sm mt-2 max-w-2xl">{{ exam.description }}</p>
         {% endif %}
       </div>
-
+      {% set now_status = "open" if exam.opens_at <= now <= exam.closes_at else ("upcoming" if now < exam.opens_at else "closed") %}
+      {% set status_colors = {"open": "bg-green-100 text-green-700", "upcoming": "bg-blue-100 text-blue-700", "closed": "bg-slate-100 text-slate-500"} %}
+    </div>
+    <dl class="grid grid-cols-4 gap-4 mt-5 pt-5 border-t border-slate-100 text-sm">
       <div>
-        <label class="block text-sm font-bold text-slate-700 mb-1">Exam title</label>
-        <input type="text" name="title" required
-               class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-               placeholder="e.g. Midterm Essay — Module 3">
+        <dt class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Opens</dt>
+        <dd class="font-semibold text-slate-700">{{ exam.opens_at.strftime("%d %b %Y %H:%M") }}</dd>
       </div>
-
       <div>
-        <label class="block text-sm font-bold text-slate-700 mb-1">Instructions / description <span class="font-normal text-slate-400">(optional)</span></label>
-        <textarea name="description" rows="3"
-                  class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
-                  placeholder="Instructions students will see before submitting…"></textarea>
+        <dt class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Closes</dt>
+        <dd class="font-semibold text-slate-700">{{ exam.closes_at.strftime("%d %b %Y %H:%M") }}</dd>
       </div>
-
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm font-bold text-slate-700 mb-1">Opens at</label>
-          <input type="datetime-local" name="opens_at" required
-                 class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
-        </div>
-        <div>
-          <label class="block text-sm font-bold text-slate-700 mb-1">Closes at</label>
-          <input type="datetime-local" name="closes_at" required
-                 class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
-        </div>
-      </div>
-
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm font-bold text-slate-700 mb-1">Allowed formats</label>
-          <input type="text" name="allowed_formats" value="pdf,docx,txt"
-                 class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                 placeholder="pdf,docx,txt">
-          <p class="text-xs text-slate-400 mt-1">Comma-separated, no spaces</p>
-        </div>
-        <div>
-          <label class="block text-sm font-bold text-slate-700 mb-1">Max file size (MB)</label>
-          <input type="number" name="max_file_mb" value="10" min="1" max="100"
-                 class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
-        </div>
-      </div>
-
       <div>
-        <label class="block text-sm font-bold text-slate-700 mb-1">
-          Similarity threshold — <span id="threshold-label" class="text-primary">40%</span>
-        </label>
-        <input type="range" name="similarity_threshold" min="0" max="1" step="0.05" value="0.4"
-               oninput="document.getElementById('threshold-label').textContent = Math.round(this.value*100)+'%'"
-               class="w-full accent-primary">
-        <p class="text-xs text-slate-400 mt-1">Pairs above this score are flagged in reports</p>
+        <dt class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Threshold</dt>
+        <dd class="font-semibold text-slate-700">{{ "%.0f"|format(exam.similarity_threshold * 100) }}%</dd>
       </div>
-
-      <div class="flex gap-3 pt-2">
-        <button type="submit"
-                class="flex-1 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/20">
-          <span class="material-symbols-outlined" style="font-size:18px">add_circle</span>
-          Create exam
-        </button>
-        <a href="/dashboard/"
-           class="px-5 py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors">
-          Cancel
-        </a>
+      <div>
+        <dt class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Allowed formats</dt>
+        <dd class="font-semibold text-slate-700 uppercase">{{ exam.allowed_formats | replace(",", ", ") }}</dd>
       </div>
-    </form>
+    </dl>
   </div>
+
+  {# Job status banner #}
+  {% if job %}
+    {% set job_colors = {
+      "pending":   "bg-yellow-50 border-yellow-200 text-yellow-800",
+      "running":   "bg-blue-50 border-blue-200 text-blue-800",
+      "completed": "bg-green-50 border-green-200 text-green-800",
+      "failed":    "bg-red-50 border-red-200 text-red-700"
+    } %}
+    {% set job_icons = {
+      "pending": "schedule",
+      "running": "sync",
+      "completed": "check_circle",
+      "failed": "error"
+    } %}
+    <div class="rounded-xl border px-5 py-4 mb-6 flex items-center gap-3 {{ job_colors[job.status] }}">
+      <span class="material-symbols-outlined {% if job.status == 'running' %}animate-spin{% endif %}" style="font-size:20px">
+        {{ job_icons[job.status] }}
+      </span>
+      <div class="flex-1 text-sm font-medium">
+        {% if job.status == "pending" %}Analysis queued — waiting for a worker.
+        {% elif job.status == "running" %}Analysis in progress — results will appear below when complete.
+        {% elif job.status == "completed" %}Analysis complete.
+        {% elif job.status == "failed" %}Analysis failed{% if job.error %}: {{ job.error }}{% endif %}.{% endif %}
+      </div>
+      {% if job.finished_at %}
+      <span class="text-xs opacity-60">{{ job.finished_at.strftime("%d %b %Y %H:%M") }}</span>
+      {% endif %}
+    </div>
+  {% elif submissions %}
+    <div class="rounded-xl border border-slate-200 bg-slate-50 px-5 py-4 mb-6 flex items-center gap-3 text-slate-500 text-sm">
+      <span class="material-symbols-outlined" style="font-size:20px">info</span>
+      Analysis not yet started. It will be triggered automatically on the next submission.
+    </div>
+  {% endif %}
+
+  {# Submissions table #}
+  <div class="mb-8">
+    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
+      Submissions
+      <span class="ml-2 text-slate-300 font-normal normal-case">{{ submissions | length }}</span>
+    </h2>
+
+    {% if submissions %}
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-xs uppercase text-slate-500 tracking-wider font-semibold border-b border-slate-100">
+          <tr>
+            <th class="px-5 py-3 text-left">Student</th>
+            <th class="px-5 py-3 text-left">File</th>
+            <th class="px-5 py-3 text-left">Submitted</th>
+            <th class="px-5 py-3 text-left">Originality</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for sub in submissions %}
+          <tr class="hover:bg-slate-50 transition-colors">
+            <td class="px-5 py-3 font-semibold text-slate-800">
+              {{ sub.student.name if sub.student else "—" }}
+              <p class="text-xs font-normal text-slate-400">{{ sub.student.email if sub.student else "" }}</p>
+            </td>
+            <td class="px-5 py-3 text-slate-500 font-mono text-xs truncate max-w-xs">
+              {{ sub.file_path.split("/")[-1] }}
+            </td>
+            <td class="px-5 py-3 text-slate-500 text-xs">
+              {{ sub.uploaded_at.strftime("%d %b %Y %H:%M") }}
+            </td>
+            <td class="px-5 py-3">
+              {% if sub.originality_score is not none %}
+                {% set score = (sub.originality_score * 100)|int %}
+                {% set color = "text-green-600" if score >= 70 else ("text-amber-500" if score >= 40 else "text-red-600") %}
+                <span class="font-black {{ color }}">{{ score }}%</span>
+                <span class="text-slate-400 text-xs ml-1">original</span>
+              {% else %}
+                <span class="text-slate-300 text-xs">Pending</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="bg-white rounded-xl border border-slate-200 p-10 text-center">
+      <span class="material-symbols-outlined text-slate-300 block mb-2" style="font-size:36px">inbox</span>
+      <p class="text-slate-400 text-sm font-medium">No submissions yet.</p>
+      <p class="text-slate-400 text-xs mt-1">Students must be enrolled in {{ exam.course.code }} and the window must be open.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  {# Similarity pairs #}
+  <div>
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider">
+        Similarity Pairs
+        <span class="ml-2 text-slate-300 font-normal normal-case">above {{ "%.0f"|format(min_score * 100) }}%</span>
+      </h2>
+      {# Threshold filter — reloads pairs table via HTMX #}
+      <form hx-get="/dashboard/exams/{{ exam.id }}"
+            hx-target="#pairs-section"
+            hx-swap="outerHTML"
+            hx-push-url="true"
+            class="flex items-center gap-3">
+        <label class="text-xs font-semibold text-slate-500">Min score:</label>
+        <input type="range" name="min_score" min="0" max="1" step="0.05"
+               value="{{ min_score }}"
+               oninput="this.nextElementSibling.textContent = Math.round(this.value*100)+'%'"
+               hx-trigger="change"
+               class="w-32 accent-primary">
+        <span class="text-xs font-bold text-primary w-8">{{ "%.0f"|format(min_score * 100) }}%</span>
+      </form>
+    </div>
+
+    <div id="pairs-section">
+      {% include "dashboard/fragments/pair_table.html" %}
+    </div>
+  </div>
+
 </div>
 {% endblock %}
