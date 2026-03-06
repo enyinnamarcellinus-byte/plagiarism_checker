@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}{{ dept.name }} · Admin · PlagCheck{% endblock %}
+{% block content %}
+<div class="max-w-6xl mx-auto w-full px-6 py-8">
+
+  {# ── Breadcrumb ── #}
+  <nav class="flex items-center gap-2 text-xs text-slate-400 font-semibold uppercase tracking-wider mb-6">
+    <a href="/admin/" class="hover:text-primary transition-colors">Admin</a>
+    <span class="material-symbols-outlined" style="font-size:14px">chevron_right</span>
+    <a href="/admin/departments-list" class="hover:text-primary transition-colors">Departments</a>
+    <span class="material-symbols-outlined" style="font-size:14px">chevron_right</span>
+    <span class="text-slate-700">{{ dept.name }}</span>
+  </nav>
+
+  {# ── Header ── #}
+  <div class="flex items-center gap-4 mb-8">
+    <div class="h-12 w-12 rounded-xl bg-primary/10 border border-primary/10 flex items-center justify-center flex-shrink-0">
+      <span class="material-symbols-outlined text-primary" style="font-size:24px">apartment</span>
+    </div>
+    <div>
+      <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">{{ dept.code }}</p>
+      <h1 class="text-2xl font-extrabold tracking-tight">{{ dept.name }}</h1>
+    </div>
+    <div class="ml-auto flex items-center gap-4 text-sm text-slate-400 font-medium">
+      <span class="flex items-center gap-1.5">
+        <span class="material-symbols-outlined" style="font-size:16px">school</span>
+        {{ courses | length }} course{{ 's' if courses | length != 1 }}
+      </span>
+      <span class="flex items-center gap-1.5">
+        <span class="material-symbols-outlined" style="font-size:16px">person</span>
+        {{ dept.users | length }} user{{ 's' if dept.users | length != 1 }}
+      </span>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-3 gap-6">
+    <div class="col-span-2 space-y-6">
+
+      {# ── Course list ── #}
+      <div>
+        <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Courses</h2>
+        {% if courses %}
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-xs uppercase text-slate-500 tracking-wider font-semibold border-b border-slate-100">
+              <tr>
+                <th class="px-5 py-3 text-left">Course</th>
+                <th class="px-5 py-3 text-left">Lecturer</th>
+                <th class="px-5 py-3 text-left">Enrolments</th>
+                <th class="px-5 py-3 text-left">Exams</th>
+                <th class="px-5 py-3"></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              {% for course in courses %}
+              <tr class="hover:bg-slate-50 transition-colors">
+                <td class="px-5 py-3">
+                  <p class="font-semibold text-slate-800">{{ course.title }}</p>
+                  <p class="text-xs text-slate-400">{{ course.code }}</p>
+                </td>
+                <td class="px-5 py-3">
+                  {% if course.lecturer %}
+                  <span class="text-slate-700 font-medium">{{ course.lecturer.name }}</span>
+                  {% else %}
+                  <span class="text-amber-500 text-xs font-semibold">Unassigned</span>
+                  {% endif %}
+                </td>
+                <td class="px-5 py-3 text-slate-500 text-xs font-semibold">
+                  {{ course.enrollments | length }}
+                </td>
+                <td class="px-5 py-3 text-slate-500 text-xs font-semibold">
+                  {{ course.exams | length }}
+                </td>
+                <td class="px-5 py-3 text-right">
+                  <a href="/admin/courses-list/{{ course.id }}"
+                     class="text-xs font-bold text-primary hover:underline">
+                    Manage →
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="bg-white rounded-xl border border-slate-200 p-10 text-center">
+          <span class="material-symbols-outlined text-slate-300 block mb-2" style="font-size:36px">inbox</span>
+          <p class="text-slate-400 text-sm font-medium">No courses yet.</p>
+          <p class="text-slate-400 text-xs mt-1">Create one using the form.</p>
+        </div>
+        {% endif %}
+      </div>
+
+      {# ── Create course form ── #}
+      <div>
+        <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Add Course</h2>
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+          <form method="post" action="/admin/courses/new" class="space-y-4">
+            <input type="hidden" name="dept_id" value="{{ dept.id }}">
+            <input type="hidden" name="department_ids" value="{{ dept.id }}">
+
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-slate-500 mb-1">Code</label>
+                <input type="text" name="code" required placeholder="e.g. CS301"
+                       class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-500 mb-1">Title</label>
+                <input type="text" name="title" required placeholder="e.g. Data Structures"
+                       class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">Description <span class="font-normal text-slate-400">(optional)</span></label>
+              <input type="text" name="description" placeholder="Brief description"
+                     class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">Assign Lecturer</label>
+              {% if lecturers %}
+              <select name="lecturer_id" required
+                      class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
+                <option value="" disabled selected>Select lecturer…</option>
+                {% for l in lecturers %}
+                <option value="{{ l.id }}">{{ l.name }} ({{ l.email }})</option>
+                {% endfor %}
+              </select>
+              {% else %}
+              <p class="text-xs text-amber-500">No lecturers available. Create a lecturer account first.</p>
+              {% endif %}
+            </div>
+
+            <div class="pt-1">
+              <button type="submit"
+                      class="px-5 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90 transition-all">
+                Create Course
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+    </div>
+
+    {# ── Right: dept users ── #}
+    <div>
+      <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Members</h2>
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        {% set role_colors = {
+          "student":  "bg-slate-100 text-slate-600",
+          "lecturer": "bg-blue-100 text-blue-700",
+          "admin":    "bg-purple-100 text-purple-700"
+        } %}
+        {% if dept.users %}
+        <div class="divide-y divide-slate-100">
+          {% for u in dept.users %}
+          <div class="px-4 py-3 flex items-center justify-between">
+            <div>
+              <p class="text-sm font-semibold text-slate-800">{{ u.name }}</p>
+              <p class="text-xs text-slate-400">{{ u.email }}</p>
+            </div>
+            <span class="px-2 py-0.5 rounded-full text-xs font-bold {{ role_colors[u.role] }}">
+              {{ u.role }}
+            </span>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="px-4 py-8 text-center">
+          <p class="text-sm text-slate-400">No users in this department.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
